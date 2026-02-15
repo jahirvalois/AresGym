@@ -1,0 +1,7 @@
+{
+  "name": "Titan Gym Pro - Advanced Management System",
+  "description": "A professional gym management system featuring RBAC, subscription control, monthly routine planning, and dynamic branding.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

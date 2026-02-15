@@ -1,0 +1,22 @@
+
+{
+  "name": "ares-gym-api",
+  "version": "1.0.0",
+  "description": "API para Ares Gym Pro conectada a Cosmos DB",
+  "main": "dist/src/functions/*.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "prestart": "npm run build",
+    "start": "func start",
+    "test": "echo \"No tests yet...\""
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0",
+    "mongodb": "^6.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

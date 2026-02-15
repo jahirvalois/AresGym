@@ -1,6 +1,6 @@
 {
-  "name": "Ares Gym Pro - Sistema de Gestión de Alto Rendimiento",
-  "description": "Sistema profesional de gestión para Ares Gym con control de acceso, rutinas y branding dinámico.",
+  "name": "Ares Gym Pro - Cloud Edition",
+  "description": "Sistema de gestión de alto rendimiento sincronizado en tiempo real con Azure Cosmos DB.",
   "requestFramePermissions": [
     "camera"
   ]

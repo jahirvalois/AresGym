@@ -1,26 +1,35 @@
 
-# Ares GYM Pro - Sistema de Gestión de Alto Rendimiento
+# Ares GYM Pro - Guía de Despliegue en Azure (Cosmos DB for MongoDB)
 
-Este sistema está diseñado para el control total de Ares GYM, integrando gestión de branding, suscripciones y rutinas inteligentes.
+Este sistema está listo para escalar a la nube de Azure mediante una arquitectura de **Static Web Apps**.
 
-## Cuentas de Prueba (Seed Data)
+## Paso a Paso para Despliegue Cloud
 
-Para probar los diferentes escenarios del sistema, utiliza las siguientes credenciales:
+### 1. Base de Datos
+- Crea un **Azure Cosmos DB for MongoDB**.
+- Obtén tu cadena de conexión (Connection String).
+- Crea una base de datos llamada `AresGymCloud` y colecciones: `users`, `routines`, `logs`, `exerciseBank`, `exerciseMedia`, `branding`.
 
-| Rol | Email | Password | Escenario de Prueba |
-| :--- | :--- | :--- | :--- |
-| **ADMIN** | `admin@ares.com` | `Cualquiera` | Gestión total, Auditoría y Branding. |
-| **COACH** | `coach@ares.com` | `Cualquiera` | Creación de rutinas y vista de clientes. |
-| **USER (OK)** | `cliente@ares.com` | `Cualquiera` | Acceso normal a rutina y registros. |
-| **USER (WAIT)** | `vence@ares.com` | `Cualquiera` | **Alerta Amarilla**: Pago próximo a vencer. |
-| **USER (BLOCK)** | `deudor@ares.com` | `Cualquiera` | **Bloqueo Rojo**: Acceso denegado por impago. |
+### 2. Backend (Azure Functions)
+Azure Static Web Apps buscará una carpeta `/api` en tu repositorio. Cada archivo `.ts` o carpeta en `/api` se convertirá en un endpoint.
+- **Ejemplo**: `/api/users.ts` manejará las peticiones de `GET`, `POST`, `PATCH` y `DELETE` para guerreros.
+- Utiliza la variable de entorno `process.env.MONGODB_URI` para conectarte a la base de datos.
 
-## Reglas de Suscripción implementadas:
-1. **Bloqueo (Rojo)**: Si la fecha actual es posterior a `subscriptionEndDate`. El sistema impide el login y muestra el mensaje obligatorio.
-2. **Alerta (Amarillo)**: Si faltan 2 días o menos para el vencimiento. Permite el acceso pero muestra la advertencia en el dashboard.
-3. **Acceso Limpio**: Suscripciones con más de 2 días de vigencia.
+### 3. Frontend (React)
+- El `apiService.ts` ya está configurado para llamar a `/api`.
+- Azure Static Web Apps servirá el frontend y la API bajo el mismo dominio, evitando problemas de CORS.
 
-## Rutas de Interés
-- `/docs`: Documentación Swagger (Simulada).
-- `/branding`: Panel de personalización Ares GYM (Solo Admin).
-- `/audit`: Registro de acciones críticas (Solo Admin).
+### 4. Configuración en Azure
+- En tu recurso de Static Web App, ve a **Settings > Configuration**.
+- Añade el secreto: `MONGODB_URI` = `[Tu Cadena de Conexión de Cosmos DB]`.
+
+## Cuentas de Prueba (Simuladas en Local, Reales en Cloud)
+
+| Rol | Email | Escenario |
+| :--- | :--- | :--- |
+| **ADMIN** | `admin@ares.com` | Gestión total y Branding. |
+| **COACH** | `coach@ares.com` | Creación de rutinas. |
+| **USER (OK)** | `cliente@ares.com` | Acceso normal. |
+
+## ¿Necesitas VNet?
+No es obligatoria. Azure Static Web Apps utiliza una red interna segura para comunicarse con las funciones integradas. Para proteger Cosmos DB, simplemente configura el firewall de Cosmos para permitir "Servicios de Azure".

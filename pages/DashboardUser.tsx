@@ -15,7 +15,6 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [profilePic, setProfilePic] = useState(currentUser.profilePicture);
   
-  // Estado para el manejo de carga de imagen en el modal
   const [mediaLoading, setMediaLoading] = useState(true);
   const [mediaError, setMediaError] = useState(false);
 
@@ -23,7 +22,6 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const adjustedToday = todayIndex === 0 ? 'Domingo' : DAYS[todayIndex - 1];
   const [selectedDay, setSelectedDay] = useState(adjustedToday);
 
-  // Correctly load user data asynchronously
   useEffect(() => {
     const loadUserData = async () => {
       const [myRoutines, userLogs, subscription] = await Promise.all([
@@ -39,7 +37,6 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     loadUserData();
   }, [currentUser.id, currentUser.role]);
 
-  // Resetear estados de media al cambiar de ejercicio
   useEffect(() => {
     if (activeExercise) {
       setMediaLoading(true);
@@ -73,7 +70,6 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     });
   };
 
-  // handleLogWorkout must be async and correctly await the API calls
   const handleLogWorkout = async () => {
     if (!activeExercise) return;
     await apiService.addLog({
@@ -168,7 +164,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
         <div className="space-y-8">
           <div className="flex justify-between items-center border-b border-slate-100 pb-4">
              <h3 className="font-black text-3xl uppercase italic text-slate-900 tracking-tighter">Misión: {selectedDay}</h3>
-             <span className="bg-primary/10 text-primary px-5 py-2 rounded-full text-[10px] font-black uppercase italic tracking-widest shadow-sm">Titan Elite</span>
+             <span className="bg-primary/10 text-primary px-5 py-2 rounded-full text-[10px] font-black uppercase italic tracking-widest shadow-sm">Ares Elite</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
@@ -218,7 +214,6 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
             </div>
 
             <div className="aspect-video bg-black rounded-[3rem] overflow-hidden shadow-2xl relative group flex items-center justify-center">
-              {/* Overlay de carga */}
               {mediaLoading && !mediaError && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 bg-slate-900 z-10">
                    <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
@@ -226,7 +221,6 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                 </div>
               )}
 
-              {/* Manejo de Error de Imagen (Content Not Available) */}
               {mediaError ? (
                 <div className="flex flex-col items-center justify-center p-10 text-center space-y-4 bg-slate-900 w-full h-full">
                    <img src="https://game-icons.net/icons/000000/ffffff/1x1/delapouite/spartan-helmet.png" className="w-16 h-16 opacity-20 invert" />

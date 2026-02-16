@@ -76,11 +76,17 @@ jobs:
           slot-name: 'Production'
           package: .
 
+      - name: Get App Service resource group
+        id: get-rg
+        run: |
+          RG=$(az webapp show --name aresgymapp --query resourceGroup -o tsv)
+          echo "resource_group=$RG" >> $GITHUB_OUTPUT
+
       - name: Configure App Service settings
         run: |
           az webapp config appsettings set \
             --name aresgymapp \
-            --resource-group $(az webapp show --name aresgymapp --query resourceGroup -o tsv) \
+            --resource-group ${{ steps.get-rg.outputs.resource_group }} \
             --settings \
               NODE_ENV="production" \
               WEBSITE_NODE_DEFAULT_VERSION="24"

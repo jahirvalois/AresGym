@@ -1,6 +1,6 @@
 
-const DB_NAME = 'AresGymDB';
-const DB_VERSION = 2;
+const DB_NAME = 'AresGymCloud';
+const DB_VERSION = 7;
 
 export class Database {
   private db: IDBDatabase | null = null;

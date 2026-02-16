@@ -4,6 +4,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import cors from 'cors';
+import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
+
+// Load environment variables from .env (if present)
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -110,10 +115,52 @@ app.put('/api/exercises/media', async (req, res) => {
 
 // --- SERVIR FRONTEND ---
 
+// OpenAPI spec (basic)
+const openapiSpec = {
+  openapi: '3.0.0',
+  info: {
+    title: 'Ares Gym Pro API',
+    version: '1.0.0',
+    description: 'API para Ares Gym Pro',
+  },
+  servers: [{ url: `http://localhost:${PORT}` }],
+  paths: {
+    '/api/users': {
+      get: {
+        summary: 'List users',
+        responses: { '200': { description: 'OK' } }
+      },
+      post: { summary: 'Create user', responses: { '201': { description: 'Created' } } }
+    },
+    '/api/users/{id}': {
+      patch: { summary: 'Update user', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'OK' } } },
+      delete: { summary: 'Delete user', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '204': { description: 'No Content' } } }
+    },
+    '/api/routines': {
+      get: { summary: 'List routines', responses: { '200': { description: 'OK' } } },
+      post: { summary: 'Create routine', responses: { '201': { description: 'Created' } } }
+    },
+    '/api/exercises/bank': {
+      get: { summary: 'Get exercise bank', responses: { '200': { description: 'OK' } } },
+      put: { summary: 'Update exercise bank', responses: { '200': { description: 'OK' } } }
+    },
+    '/api/exercises/media': {
+      get: { summary: 'Get exercise media', responses: { '200': { description: 'OK' } } },
+      put: { summary: 'Upsert exercise media', responses: { '200': { description: 'OK' } } }
+    }
+  }
+};
+
+// Serve OpenAPI JSON
+app.get('/openapi.json', (req, res) => res.json(openapiSpec));
+
+// Serve Swagger UI at /api-docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
+
 // Servir archivos estáticos de la carpeta 'dist'
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Cualquier ruta que no sea de la API, sirve el index.html (soporte para SPA)
+// Cualquier ruta que no sea de la API o docs, sirve el index.html (soporte para SPA)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
@@ -122,5 +169,6 @@ app.get('*', (req, res) => {
 connectDB().then(() => {
   app.listen(PORT, () => {
     console.log(`Servidor Ares Pro corriendo en puerto ${PORT}`);
+    console.log(`Swagger UI available at http://localhost:${PORT}/api-docs`);
   });
 });

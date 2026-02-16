@@ -242,5 +242,37 @@ export const apiService = {
       bank[category] = bank[category].map((ex: string) => ex === oldName ? newName : ex);
       saveLocal('bank', bank);
     }
+  },
+
+  // Authentication Methods
+  async post<T>(path: string, body: any): Promise<T> {
+    return request<T>(path, {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+  },
+
+  async login(email: string, password: string) {
+    try {
+      return await this.post('/auth/login', { email, password });
+    } catch (err) {
+      throw new Error('Login failed. Please check your credentials.');
+    }
+  },
+
+  async forgotPassword(email: string) {
+    try {
+      return await this.post('/auth/forgot-password', { email });
+    } catch (err) {
+      throw new Error('Failed to send reset email.');
+    }
+  },
+
+  async resetPassword(token: string, newPassword: string, confirmPassword: string) {
+    try {
+      return await this.post('/auth/reset-password', { token, newPassword, confirmPassword });
+    } catch (err) {
+      throw new Error('Failed to reset password.');
+    }
   }
 };

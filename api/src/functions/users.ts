@@ -1,6 +1,7 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { connectToDatabase } from "../lib/mongodb";
+import { hashPassword } from "../lib/passwordUtils";
 import { ObjectId } from "mongodb";
 
 export async function usersHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
@@ -14,13 +15,23 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
 
     if (request.method === 'POST') {
         const body: any = await request.json();
+        const userData = body.newUser;
+
+        // Hash password if provided
+        if (userData.password) {
+            userData.password = await hashPassword(userData.password);
+        }
+
         const newUser = {
-            ...body.newUser,
+            ...userData,
             createdAt: new Date().toISOString(),
             isFirstLogin: true
         };
         const result = await collection.insertOne(newUser);
-        return { status: 201, jsonBody: { ...newUser, _id: result.insertedId } };
+        
+        // Return user without password
+        const { password, ...userWithoutPassword } = newUser;
+        return { status: 201, jsonBody: { ...userWithoutPassword, _id: result.insertedId } };
     }
 
     // Rutas con ID
@@ -28,7 +39,14 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
     if (id) {
         if (request.method === 'PATCH') {
             const body: any = await request.json();
-            await collection.updateOne({ _id: new ObjectId(id) }, { $set: body.updates });
+            const updates = body.updates;
+
+            // Hash password if being updated
+            if (updates.password) {
+                updates.password = await hashPassword(updates.password);
+            }
+
+            await collection.updateOne({ _id: new ObjectId(id) }, { $set: updates });
             return { status: 200, jsonBody: { success: true } };
         }
         if (request.method === 'DELETE') {

@@ -31,45 +31,49 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState(brandingService.getSettings());
 
   useEffect(() => {
-    apiService.init().then(() => setDbReady(true));
+    // Inicialización silenciosa para evitar bloqueos
+    apiService.init().finally(() => setDbReady(true));
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const users = await apiService.getUsers();
-    const found = users.find(u => u.email === loginEmail);
-    
-    if (found) {
-      if (found.isFirstLogin) {
-        setTempUser(found);
-        setAuthView('first-login');
-        setError(null);
-        return;
+    try {
+      const users = await apiService.getUsers();
+      const found = users.find(u => u.email === loginEmail);
+      
+      if (found) {
+        if (found.isFirstLogin) {
+          setTempUser(found);
+          setAuthView('first-login');
+          setError(null);
+          return;
+        }
+        if (found.password && found.password !== loginPass) {
+          setError({ message: 'Contraseña incorrecta', isBlocking: false });
+          return;
+        }
+        const sub = await apiService.getSubscriptionState(found);
+        if (sub.state === SubscriptionState.EXPIRED) {
+          setError({ message: sub.message!, isBlocking: true });
+          return;
+        }
+        setUser(found);
+        if (found.role === UserRole.COACH || found.role === UserRole.ADMIN) setActiveTab('users');
+        else setActiveTab('dashboard');
+        setError(sub.message ? { message: sub.message, isBlocking: false } : null);
+      } else {
+        setError({ message: 'Credenciales inválidas', isBlocking: false });
       }
-      if (found.password && found.password !== loginPass) {
-        setError({ message: 'Contraseña incorrecta', isBlocking: false });
-        return;
-      }
-      const sub = await apiService.getSubscriptionState(found);
-      if (sub.state === SubscriptionState.EXPIRED) {
-        setError({ message: sub.message!, isBlocking: true });
-        return;
-      }
-      setUser(found);
-      // Redireccionamos a ADMIN y COACH a la lista de usuarios
-      if (found.role === UserRole.COACH || found.role === UserRole.ADMIN) setActiveTab('users');
-      else setActiveTab('dashboard');
-      setError(sub.message ? { message: sub.message, isBlocking: false } : null);
-    } else {
-      setError({ message: 'Credenciales inválidas', isBlocking: false });
+    } catch (err) {
+      setError({ message: 'Error de conexión con el Olimpo', isBlocking: false });
     }
   };
 
   const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await apiService.requestPasswordReset(loginEmail);
+    const success = await apiService.getUsers().then(users => users.some(u => u.email === loginEmail));
     if (success) {
-      alert('Enlace de recuperación enviado (Simulado)');
+      alert('Guerrero, busca en tu pergamino (Email simluado)');
       setAuthView('login');
     } else {
       setError({ message: 'Email no registrado', isBlocking: false });
@@ -105,7 +109,7 @@ const App: React.FC = () => {
 
   if (!dbReady) return <div className="min-h-screen bg-black flex items-center justify-center font-black text-primary italic text-2xl uppercase tracking-tighter">Iniciando Servidores...</div>;
 
-  const loginButtonClasses = "w-full bg-black text-primary py-5 rounded-[1.5rem] font-black text-lg shadow-xl border-2 border-black hover:bg-[#eab308] hover:text-black hover:border-black transition-all uppercase italic";
+  const loginButtonClasses = "w-full bg-black text-primary py-5 rounded-[1.5rem] font-black text-lg shadow-xl border-2 border-black hover:bg-yellow-500 hover:text-black hover:border-black transition-all uppercase italic";
 
   if (!user) {
     const isBlocking = error?.isBlocking;
@@ -154,10 +158,6 @@ const App: React.FC = () => {
                 <button type="submit" className={loginButtonClasses}>Forjar Acceso</button>
               </form>
             )}
-
-            <div className="text-center pt-8 border-t border-slate-50">
-              <p className="text-[9px] text-slate-300 font-bold uppercase tracking-[0.2em]">{settings.contactInfo}</p>
-            </div>
           </div>
         </div>
       </BrandingProvider>

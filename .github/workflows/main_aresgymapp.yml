@@ -21,7 +21,7 @@ jobs:
       - name: Set up Node.js version
         uses: actions/setup-node@v4
         with:
-          node-version: '24-lts'
+          node-version: '24'
           cache: 'npm'
 
       - name: npm install and build
@@ -83,7 +83,7 @@ jobs:
             --resource-group $(az webapp show --name aresgymapp --query resourceGroup -o tsv) \
             --settings \
               NODE_ENV="production" \
-              WEBSITE_NODE_DEFAULT_VERSION="24-lts"
+              WEBSITE_NODE_DEFAULT_VERSION="24"
 
       - name: Verify deployment
         run: |

@@ -12,6 +12,14 @@ import { BrandingManager } from './pages/BrandingManager';
 
 type AuthView = 'login' | 'forgot-password' | 'reset-password' | 'first-login';
 
+const SESSION_KEY = 'ares_session';
+const SESSION_TTL_MS = 60 * 60 * 1000;
+
+type StoredSession = {
+  user: User;
+  expiresAt: number;
+};
+
 const App: React.FC = () => {
   const [dbReady, setDbReady] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -21,10 +29,12 @@ const App: React.FC = () => {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [error, setError] = useState<{ message: string; isBlocking: boolean } | null>(null);
+  const [resetSuccess, setResetSuccess] = useState('');
   
   const [tempUser, setTempUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetToken, setResetToken] = useState('');
 
   const [selectedUserForRoutine, setSelectedUserForRoutine] = useState<string | undefined>(undefined);
 
@@ -33,6 +43,30 @@ const App: React.FC = () => {
   useEffect(() => {
     // Inicialización silenciosa para evitar bloqueos
     apiService.init().finally(() => setDbReady(true));
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (raw) {
+      try {
+        const stored = JSON.parse(raw) as StoredSession;
+        if (stored?.expiresAt && stored.expiresAt > Date.now() && stored.user) {
+          setUser(stored.user);
+          if (stored.user.role === UserRole.COACH || stored.user.role === UserRole.ADMIN) setActiveTab('users');
+          else setActiveTab('dashboard');
+        } else {
+          localStorage.removeItem(SESSION_KEY);
+        }
+      } catch {
+        localStorage.removeItem(SESSION_KEY);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get('token');
+    if (url.pathname.startsWith('/reset-password') || token) {
+      setAuthView('reset-password');
+      if (token) setResetToken(token);
+    }
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -58,6 +92,7 @@ const App: React.FC = () => {
           return;
         }
         setUser(found);
+        localStorage.setItem(SESSION_KEY, JSON.stringify({ user: found, expiresAt: Date.now() + SESSION_TTL_MS }));
         if (found.role === UserRole.COACH || found.role === UserRole.ADMIN) setActiveTab('users');
         else setActiveTab('dashboard');
         setError(sub.message ? { message: sub.message, isBlocking: false } : null);
@@ -71,12 +106,47 @@ const App: React.FC = () => {
 
   const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await apiService.getUsers().then(users => users.some(u => u.email === loginEmail));
-    if (success) {
-      alert('Guerrero, busca en tu pergamino (Email simluado)');
+    try {
+      await apiService.forgotPassword(loginEmail);
+      alert('Revisa tu correo para el enlace de recuperacion.');
       setAuthView('login');
-    } else {
-      setError({ message: 'Email no registrado', isBlocking: false });
+    } catch (err: any) {
+      setError({ message: err.message || 'Email no registrado', isBlocking: false });
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setResetSuccess('');
+
+    if (!resetToken) {
+      setError({ message: 'Token invalido o faltante', isBlocking: false });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError({ message: 'Contrasenas no coinciden', isBlocking: false });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError({ message: 'La contrasena debe tener al menos 8 caracteres', isBlocking: false });
+      return;
+    }
+
+    try {
+      await apiService.resetPassword(resetToken, newPassword, confirmPassword);
+      setResetSuccess('Contrasena actualizada. Ahora puedes iniciar sesion.');
+      setTimeout(() => {
+        setAuthView('login');
+        setNewPassword('');
+        setConfirmPassword('');
+        setResetToken('');
+        window.history.replaceState({}, '', '/');
+      }, 1500);
+    } catch (err: any) {
+      setError({ message: err.message || 'No se pudo actualizar la contrasena', isBlocking: false });
     }
   };
 
@@ -90,6 +160,7 @@ const App: React.FC = () => {
       const updated = await apiService.updateUser(tempUser, tempUser.id, { password: newPassword, isFirstLogin: false });
       if (updated) {
         setUser(updated);
+        localStorage.setItem(SESSION_KEY, JSON.stringify({ user: updated, expiresAt: Date.now() + SESSION_TTL_MS }));
         setAuthView('login');
         setTempUser(null);
         setError(null);
@@ -105,6 +176,7 @@ const App: React.FC = () => {
     setTempUser(null);
     setActiveTab('dashboard');
     setSelectedUserForRoutine(undefined);
+    localStorage.removeItem(SESSION_KEY);
   };
 
   if (!dbReady) return <div className="min-h-screen bg-black flex items-center justify-center font-black text-primary italic text-2xl uppercase tracking-tighter">Iniciando Servidores...</div>;
@@ -136,6 +208,12 @@ const App: React.FC = () => {
               </div>
             )}
 
+            {resetSuccess && (
+              <div className="p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center bg-emerald-400 text-black border-2 border-black">
+                {resetSuccess}
+              </div>
+            )}
+
             {authView === 'login' ? (
               <form onSubmit={handleLogin} className="space-y-6">
                 <input type="email" className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 bg-slate-50 outline-none font-bold text-sm" placeholder="Email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
@@ -149,6 +227,18 @@ const App: React.FC = () => {
               <form onSubmit={handleRequestReset} className="space-y-6">
                 <input type="email" className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 bg-slate-50 outline-none font-bold text-sm" placeholder="Tu Email Registrado" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
                 <button type="submit" className={loginButtonClasses}>Enviar Enlace</button>
+                <button type="button" onClick={() => setAuthView('login')} className="w-full text-[10px] font-black uppercase text-slate-400">Volver</button>
+              </form>
+            ) : authView === 'reset-password' ? (
+              <form onSubmit={handleResetPassword} className="space-y-6">
+                {!resetToken && (
+                  <div className="p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center bg-red-600 text-white border-2 border-black">
+                    Enlace invalido o expirado.
+                  </div>
+                )}
+                <input type="password" className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 bg-slate-50 outline-none font-bold text-sm" placeholder="Nueva Contraseña" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
+                <input type="password" className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 bg-slate-50 outline-none font-bold text-sm" placeholder="Confirmar" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+                <button type="submit" className={loginButtonClasses} disabled={!resetToken}>Cambiar Contraseña</button>
                 <button type="button" onClick={() => setAuthView('login')} className="w-full text-[10px] font-black uppercase text-slate-400">Volver</button>
               </form>
             ) : (

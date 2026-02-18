@@ -1,8 +1,13 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { connectToDatabase } from "../lib/mongodb";
 import { verifyPassword, hashPassword, generateResetToken } from "../lib/passwordUtils";
+import { initializeEmailService, sendPasswordResetEmail } from "../lib/emailService";
 import crypto from 'crypto';
 import { ObjectId } from "mongodb";
+
+function isValidEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
 // LOGIN HANDLER
 async function loginHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
@@ -39,6 +44,15 @@ async function loginHandler(request: HttpRequest, context: InvocationContext): P
                     status: 401,
                     jsonBody: { error: "Invalid email or password" }
                 };
+            }
+
+            // If login is successful, ensure user status is ACTIVE
+            if (user.status !== 'ACTIVE') {
+                try {
+                    await usersCollection.updateOne({ _id: user._id }, { $set: { status: 'ACTIVE' } });
+                } catch (e) {
+                    context.log && context.log.warn('Failed to update user status to ACTIVE', e);
+                }
             }
 
             // Return user data without password
@@ -81,6 +95,13 @@ async function forgotPasswordHandler(request: HttpRequest, context: InvocationCo
                 };
             }
 
+            if (!isValidEmail(email)) {
+                return {
+                    status: 400,
+                    jsonBody: { error: "Invalid email format" }
+                };
+            }
+
             // Find user by email
             const user = await usersCollection.findOne({ email });
 
@@ -106,12 +127,17 @@ async function forgotPasswordHandler(request: HttpRequest, context: InvocationCo
                 }
             );
 
-            // Return token (in real app, send via email)
+            const appUrl = process.env.APP_URL || 'http://localhost:5173';
+            const resetLink = `${appUrl}/reset-password`;
+
+            await initializeEmailService();
+            await sendPasswordResetEmail(email, token, resetLink);
+
+            // Return generic response
             return {
                 status: 200,
                 jsonBody: {
-                    message: "Reset token generated",
-                    resetToken: token, // Return token for testing (remove in production)
+                    message: "If the email exists, a reset link has been sent",
                     expiresIn: "10 minutes"
                 }
             };

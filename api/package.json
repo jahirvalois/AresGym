@@ -14,10 +14,12 @@
     "@azure/functions": "^4.0.0",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",
-    "mongodb": "^6.3.0"
+    "mongodb": "^6.3.0",
+    "nodemailer": "^6.9.7"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/nodemailer": "^6.4.14",
     "typescript": "^5.0.0"
   }
 }

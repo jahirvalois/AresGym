@@ -11,7 +11,12 @@ import {
 } from '../types';
 import { MOCK_USERS } from '../constants';
 
-const API_BASE = '/api';
+const rawApiBase = (import.meta as any)?.env?.VITE_API_BASE_URL || '/api';
+const API_BASE = rawApiBase === '/api'
+  ? '/api'
+  : (rawApiBase.endsWith('/api') ? rawApiBase : `${rawApiBase}/api`);
+const isRemoteApi = API_BASE.startsWith('http');
+console.info('[apiService] API_BASE resolved to:', API_BASE, 'rawApiBase:', rawApiBase, 'isRemoteApi:', isRemoteApi);
 
 // Gestión de Datos Locales (Fallback)
 const getLocal = (key: string, fallback: any) => {
@@ -33,8 +38,29 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       },
     });
 
-    if (!response.ok) throw new Error('API_ERROR');
+    if (!response.ok) {
+      let data: any = null;
+      try {
+        const contentTypeError = response.headers.get("content-type");
+        if (contentTypeError && contentTypeError.includes("application/json")) {
+          data = await response.json();
+        } else {
+          data = { message: await response.text() };
+        }
+      } catch {
+        data = null;
+      }
+
+      const error: any = new Error(data?.message || data?.error || 'API_ERROR');
+      error.status = response.status;
+      error.data = data;
+      throw error;
+    }
     
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
     const contentType = response.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
       throw new Error("NOT_JSON");
@@ -47,6 +73,18 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 }
 
+const normalizeUser = (user: any): User => {
+  if (!user) return user as User;
+  if (user.id) return { ...user, id: String(user.id) } as User;
+  if (user._id) {
+    const idValue = typeof user._id === 'object' && user._id.$oid
+      ? user._id.$oid
+      : String(user._id);
+    return { ...user, id: idValue } as User;
+  }
+  return user as User;
+};
+
 export const apiService = {
   async init() {
     console.log("Ares Gym Pro: Sistema Híbrido inicializado.");
@@ -54,7 +92,8 @@ export const apiService = {
 
   async getUsers(): Promise<User[]> {
     try {
-      return await request<User[]>('/users');
+      const users = await request<User[]>('/users');
+      return users.map(normalizeUser);
     } catch {
       return getLocal('users', MOCK_USERS);
     }
@@ -62,11 +101,19 @@ export const apiService = {
   
   async createUser(currentUser: User, newUser: Partial<User>) {
     try {
-      return await request<User>('/users', {
+      const created = await request<User>('/users', {
         method: 'POST',
         body: JSON.stringify({ currentUser, newUser })
       });
-    } catch {
+      return normalizeUser(created);
+    } catch (err: any) {
+      if (err?.status === 409 && err?.data?.error === 'USER_EXISTS') {
+        const existsError: any = new Error(err?.data?.message || 'Usuario existe. Se envio enlace para cambiar contrasena.');
+        existsError.code = 'USER_EXISTS';
+        existsError.resetEmailSent = !!err?.data?.resetEmailSent;
+        throw existsError;
+      }
+
       const users = getLocal('users', MOCK_USERS);
       const u: User = { 
         id: Math.random().toString(36).substr(2, 9), 
@@ -82,10 +129,11 @@ export const apiService = {
 
   async updateUser(currentUser: User, id: string, updates: Partial<User>) {
     try {
-      return await request<User>(`/users/${id}`, {
+      const updated = await request<User>(`/users/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ currentUser, updates })
       });
+      return normalizeUser(updated);
     } catch {
       const users = getLocal('users', MOCK_USERS);
       const updated = users.map((u: User) => u.id === id ? { ...u, ...updates } : u);
@@ -95,9 +143,16 @@ export const apiService = {
   },
 
   async deleteUser(currentUser: User, id: string) {
+    console.debug('[apiService] deleteUser called with id:', id, 'currentUser:', currentUser?.id);
+    if (!id) {
+      console.warn('[apiService] deleteUser called with missing id');
+      throw new Error('Missing user id');
+    }
     try {
       await request<void>(`/users/${id}`, { method: 'DELETE' });
-    } catch {
+    } catch (err) {
+      console.warn('[apiService] deleteUser request failed, falling back to local storage', err);
+      if (isRemoteApi) throw err;
       const users = getLocal('users', MOCK_USERS);
       saveLocal('users', users.filter((u: User) => u.id !== id));
     }

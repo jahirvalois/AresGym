@@ -24,6 +24,8 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
   const [newExName, setNewExName] = useState('');
   const [newCatName, setNewCatName] = useState('');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<User | null>(null);
 
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
 
@@ -59,17 +61,33 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     return () => clearInterval(interval);
   }, []);
 
+  // Auto-dismiss notifications after 15 seconds maximum
+  useEffect(() => {
+    if (!notification) return;
+    const timeout = setTimeout(() => setNotification(null), 15000);
+    return () => clearTimeout(timeout);
+  }, [notification]);
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUser.name || !newUser.email) return alert("Nombre y Email obligatorios");
-    await apiService.createUser(currentUser, {
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      subscriptionEndDate: newUser.role === UserRole.USER ? new Date(newUser.subEnd).toISOString() : '2050-12-31T23:59:59.000Z'
-    });
-    setNewUser({ ...newUser, name: '', email: '' });
-    refreshData();
+    try {
+      await apiService.createUser(currentUser, {
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        subscriptionEndDate: newUser.role === UserRole.USER ? new Date(newUser.subEnd).toISOString() : '2050-12-31T23:59:59.000Z'
+      });
+      setNotification({ type: 'success', message: 'Guerrero reclutado e invitacion enviada.' });
+      setNewUser({ ...newUser, name: '', email: '' });
+      refreshData();
+    } catch (err: any) {
+      if (err?.code === 'USER_EXISTS') {
+        setNotification({ type: 'error', message: err.message || 'Usuario existe. Se envio un enlace para cambiar contrasena (10 min).' });
+        return;
+      }
+      setNotification({ type: 'error', message: err?.message || 'No se pudo crear el usuario.' });
+    }
   };
 
   const handleUpdateUser = async (e: React.FormEvent) => {
@@ -82,11 +100,24 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (window.confirm("¿Seguro que deseas desterrar a este guerrero?")) {
-      try {
-        await apiService.deleteUser(currentUser, id);
-        refreshData();
-      } catch (err: any) { alert(err.message); }
+    console.debug('[DashboardAdmin] handleDeleteUser called with id:', id);
+    const target = users.find(u => u.id === id) || null;
+    if (!target) console.warn('[DashboardAdmin] No user found for id:', id, 'users count:', users.length);
+    setPendingDelete(target);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!pendingDelete) return;
+    try {
+      console.debug('[DashboardAdmin] confirmDeleteUser deleting pendingDelete:', pendingDelete);
+      await apiService.deleteUser(currentUser, pendingDelete.id);
+      setNotification({ type: 'success', message: 'Guerrero eliminado.' });
+      setPendingDelete(null);
+      refreshData();
+    } catch (err: any) {
+      console.error('[DashboardAdmin] confirmDeleteUser error:', err);
+      setNotification({ type: 'error', message: err?.message || 'No se pudo borrar el usuario.' });
+      setPendingDelete(null);
     }
   };
 
@@ -202,6 +233,11 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     
     return (
       <div className="space-y-8 animate-in fade-in">
+        {notification && (
+          <div className={`fixed top-6 right-6 z-[300] px-6 py-4 rounded-2xl shadow-xl border-2 font-black uppercase text-[10px] tracking-widest ${notification.type === 'success' ? 'bg-emerald-400 text-black border-black' : 'bg-red-600 text-white border-black'}`}>
+            {notification.message}
+          </div>
+        )}
         <header className="flex flex-col md:flex-row justify-between items-center gap-4">
           <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900">Legión de <span className="text-primary">Guerreros</span></h2>
           <input type="text" placeholder="Buscar..." className="w-full md:w-80 bg-white border-2 p-4 rounded-2xl outline-none focus:border-primary font-bold text-xs uppercase" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
@@ -216,7 +252,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
               <option value={UserRole.ADMIN}>Rey</option>
             </select>
             <input type="date" className="bg-slate-50 p-4 rounded-xl font-bold" value={newUser.subEnd} onChange={e => setNewUser({...newUser, subEnd: e.target.value})} disabled={newUser.role !== UserRole.USER} />
-            <button className="bg-primary text-black font-black uppercase italic p-4 rounded-xl shadow-lg hover:bg-black hover:text-primary transition-all">Reclutar</button>
+            <button className="bg-primary text-black border-2 border-primary font-black uppercase italic p-4 rounded-xl shadow-lg hover:bg-black hover:text-yellow-400 hover:border-yellow-400 transition-all">Reclutar</button>
           </form>
         </section>
         <div className="bg-white rounded-[3rem] shadow-xl border overflow-hidden">
@@ -282,6 +318,18 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
               <div className="flex gap-4">
                 <button onClick={() => setEditingUser(null)} className="flex-1 py-4 uppercase text-slate-400 font-black">Cerrar</button>
                 <button onClick={handleUpdateUser} className="flex-1 bg-black text-primary py-4 rounded-xl font-black uppercase">Guardar</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {pendingDelete && (
+          <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[260] animate-in zoom-in">
+            <div className="bg-white w-full max-w-md rounded-[3rem] p-10 space-y-6">
+              <h3 className="text-2xl font-black uppercase italic tracking-tighter">Confirmar Destierro</h3>
+              <p className="text-slate-600 font-bold text-sm">¿Borrar a <span className="font-black">{pendingDelete.name}</span>?</p>
+              <div className="flex gap-4">
+                <button onClick={() => setPendingDelete(null)} className="flex-1 py-4 uppercase text-slate-400 font-black">Cancelar</button>
+                <button onClick={confirmDeleteUser} className="flex-1 bg-red-600 text-white py-4 rounded-xl font-black uppercase">Borrar</button>
               </div>
             </div>
           </div>

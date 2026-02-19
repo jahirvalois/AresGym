@@ -51,7 +51,11 @@ async function loginHandler(request: HttpRequest, context: InvocationContext): P
                 try {
                     await usersCollection.updateOne({ _id: user._id }, { $set: { status: 'ACTIVE' } });
                 } catch (e) {
-                    context.log && context.log.warn('Failed to update user status to ACTIVE', e);
+                    const l: any = context.log;
+                    if (l) {
+                        if (typeof l.warn === 'function') l.warn('Failed to update user status to ACTIVE', e);
+                        else l('Failed to update user status to ACTIVE', e);
+                    }
                 }
             }
 
@@ -246,29 +250,62 @@ async function socialLoginHandler(request: HttpRequest, context: InvocationConte
     if (request.method === 'POST') {
         try {
             const body: any = await request.json();
-            const { provider, providerId, email, name, avatar } = body;
+            const { provider, providerId, email, name, avatar, idToken } = body;
 
-            if (!provider || !providerId || !email) {
-                return { status: 400, jsonBody: { error: 'provider, providerId and email are required' } };
+            if (!provider) return { status: 400, jsonBody: { error: 'provider is required' } };
+
+            let normalizedEmail: string | null = null;
+
+            // If Google idToken is provided, verify it with Google
+            if (provider === 'google' && idToken) {
+                try {
+                    const resp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+                    if (!resp.ok) return { status: 401, jsonBody: { error: 'Invalid Google token' } };
+                    const tokenInfo: any = await resp.json();
+                    // Optional: validate audience
+                    const expectedAud = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+                    if (expectedAud && tokenInfo.aud && tokenInfo.aud !== expectedAud) {
+                        return { status: 401, jsonBody: { error: 'Invalid token audience' } };
+                    }
+                    if (!tokenInfo.email || tokenInfo.email_verified !== 'true' && tokenInfo.email_verified !== true) {
+                        return { status: 401, jsonBody: { error: 'Unverified Google account' } };
+                    }
+                    normalizedEmail = String(tokenInfo.email).trim().toLowerCase();
+                    // populate fields from token
+                    body.providerId = tokenInfo.sub;
+                    body.name = body.name || tokenInfo.name;
+                    body.avatar = body.avatar || tokenInfo.picture;
+                } catch (e) {
+                    return { status: 500, jsonBody: { error: 'Failed to verify Google token' } };
+                }
             }
 
-            if (!isValidEmail(email)) {
-                return { status: 400, jsonBody: { error: 'Invalid email format' } };
+            if (!normalizedEmail && (!providerId || !email)) {
+                return { status: 400, jsonBody: { error: 'providerId and email are required' } };
             }
 
-            const normalizedEmail = email.trim().toLowerCase();
+            if (!normalizedEmail) {
+                if (!isValidEmail(email)) return { status: 400, jsonBody: { error: 'Invalid email format' } };
+                normalizedEmail = String(email).trim().toLowerCase();
+            }
 
             // Try to find existing user by email
             let user = await usersCollection.findOne({ email: normalizedEmail });
 
-            if (user) {
+                if (user) {
                 // Ensure provider info is set
                 const updates: any = {};
                 if (!user.provider) updates.provider = provider;
                 if (!user.providerId) updates.providerId = providerId;
                 if (avatar && !user.profilePicture) updates.profilePicture = avatar;
                 if (Object.keys(updates).length > 0) {
-                    try { await usersCollection.updateOne({ _id: user._id }, { $set: updates }); } catch (e) { context.log && context.log.warn('Failed to update provider info', e); }
+                    try { await usersCollection.updateOne({ _id: user._id }, { $set: updates }); } catch (e) {
+                        const l: any = context.log;
+                        if (l) {
+                            if (typeof l.warn === 'function') l.warn('Failed to update provider info', e);
+                            else l('Failed to update provider info', e);
+                        }
+                    }
                 }
 
                 const { password, ...userWithoutPassword } = user as any;
@@ -276,16 +313,17 @@ async function socialLoginHandler(request: HttpRequest, context: InvocationConte
             }
 
             // Create new user as 'guerrero' (regular USER role)
+            // For social signups, create account as INACTIVE and mark as first login
             const newUser: any = {
                 email: normalizedEmail,
                 name: name || 'Guerrero',
                 role: 'USER',
-                status: 'ACTIVE',
+                status: 'INACTIVE',
                 provider,
                 providerId,
                 profilePicture: avatar,
                 createdAt: new Date().toISOString(),
-                isFirstLogin: false
+                isFirstLogin: true
             };
 
             const result = await usersCollection.insertOne(newUser);

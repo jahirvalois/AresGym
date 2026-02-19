@@ -38,6 +38,22 @@
 <body>
     <div id="root"></div>
 </body>
+  <script type="module">
+    (function(){
+      try {
+        // Vite will replace import.meta.env in index.html during dev/build
+        // Expose the value to runtime via window for components that may not get import.meta.env
+        // This is a temporary debug aid.
+        // eslint-disable-next-line no-undef
+        window.__VITE_GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        // eslint-disable-next-line no-console
+        console.log('[index debug] VITE_GOOGLE_CLIENT_ID=', window.__VITE_GOOGLE_CLIENT_ID);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[index debug] import.meta.env not available in index.html', e);
+      }
+    })();
+  </script>
   <script type="module" src="/index.tsx"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </html>

@@ -349,6 +349,10 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                   <option value={UserRole.COACH}>Mentor</option>
                   <option value={UserRole.ADMIN}>Rey</option>
                 </select>
+                <select className="w-full bg-slate-50 p-4 rounded-xl font-bold uppercase" value={editingUser.status} onChange={e => setEditingUser({...editingUser, status: e.target.value as UserStatus})}>
+                  <option value={UserStatus.ACTIVE}>ACTIVE</option>
+                  <option value={UserStatus.INACTIVE}>INACTIVE</option>
+                </select>
                 {editingUser.role === UserRole.USER && (
                   <input
                     type="date"

@@ -9,7 +9,6 @@ import {
   AuditLog,
   SubscriptionState 
 } from '../types';
-import { MOCK_USERS } from '../constants';
 
 const rawApiBase = (import.meta as any)?.env?.VITE_API_BASE_URL || '/api';
 const API_BASE = rawApiBase === '/api'
@@ -88,6 +87,24 @@ const normalizeUser = (user: any): User => {
 export const apiService = {
   async init() {
     console.log("Ares Gym Pro: Sistema Híbrido inicializado.");
+    try {
+      // Migrate any local social-login users to INACTIVE and mark as first-login
+      const users = getLocal('users', []);
+      let changed = false;
+      const migrated = users.map((u: any) => {
+        if ((u.provider || u.providerId) && u.status === UserStatus.ACTIVE) {
+          changed = true;
+          return { ...u, status: UserStatus.INACTIVE, isFirstLogin: true };
+        }
+        return u;
+      });
+      if (changed) {
+        saveLocal('users', migrated);
+        console.log('[apiService] migrated local social users to INACTIVE');
+      }
+    } catch (e) {
+      console.warn('[apiService] migration check failed', e);
+    }
   },
 
   async getUsers(): Promise<User[]> {
@@ -95,7 +112,7 @@ export const apiService = {
       const users = await request<User[]>('/users');
       return users.map(normalizeUser);
     } catch {
-      return getLocal('users', MOCK_USERS);
+      return getLocal('users', []);
     }
   },
   
@@ -114,7 +131,7 @@ export const apiService = {
         throw existsError;
       }
 
-      const users = getLocal('users', MOCK_USERS);
+      const users = getLocal('users', []);
       const u: User = { 
         id: Math.random().toString(36).substr(2, 9), 
         ...newUser, 
@@ -135,7 +152,7 @@ export const apiService = {
       });
       return normalizeUser(updated);
     } catch {
-      const users = getLocal('users', MOCK_USERS);
+      const users = getLocal('users', []);
       const updated = users.map((u: User) => u.id === id ? { ...u, ...updates } : u);
       saveLocal('users', updated);
       return updated.find((u: User) => u.id === id);
@@ -153,7 +170,7 @@ export const apiService = {
     } catch (err) {
       console.warn('[apiService] deleteUser request failed, falling back to local storage', err);
       if (isRemoteApi) throw err;
-      const users = getLocal('users', MOCK_USERS);
+      const users = getLocal('users', []);
       saveLocal('users', users.filter((u: User) => u.id !== id));
     }
   },
@@ -348,5 +365,67 @@ export const apiService = {
     } catch (err) {
       throw new Error('Failed to reset password.');
     }
+  },
+
+  async socialLogin(...args: any[]) {
+    // Args: (provider, providerIdOrIdToken, email?, name?, avatar?)
+    const [provider, providerIdOrIdToken, email, name, avatar] = args;
+    const isIdToken = typeof providerIdOrIdToken === 'string' && providerIdOrIdToken.split('.').length === 3;
+    const payload: any = { provider };
+    if (isIdToken) payload.idToken = providerIdOrIdToken;
+    else payload.providerId = providerIdOrIdToken;
+    if (email) payload.email = email;
+    if (name) payload.name = name;
+    if (avatar) payload.avatar = avatar;
+
+    try {
+      return await this.post('/auth/social-login', payload);
+    } catch (err) {
+      // Local fallback: find or create user in local storage
+      const users = getLocal('users', []);
+      // Try to extract data from id_token if available
+      let decoded: any = null;
+      if (isIdToken) decoded = parseJwt(providerIdOrIdToken as string);
+      const normalized = (email || decoded?.email || '').trim().toLowerCase();
+      let user = users.find((u: any) => (u.email || '').toLowerCase() === normalized);
+      if (user) return { user };
+      const chosenName = name || decoded?.name || 'Guerrero';
+      const chosenAvatar = avatar || decoded?.picture || '';
+      const chosenProviderId = isIdToken ? (decoded?.sub || undefined) : providerIdOrIdToken;
+      const newUser: User = {
+        id: Math.random().toString(36).substr(2, 9),
+        email: normalized,
+        name: chosenName,
+        role: UserRole.USER,
+        status: UserStatus.INACTIVE,
+        subscriptionEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        createdAt: new Date().toISOString(),
+        isFirstLogin: true,
+        profilePicture: chosenAvatar
+      } as User;
+      // attach provider info for migration/inspection
+      (newUser as any).provider = provider;
+      if (chosenProviderId) (newUser as any).providerId = chosenProviderId;
+      const updated = [...users, newUser];
+      saveLocal('users', updated);
+      return { user: newUser };
+    }
+  }
+};
+
+// Decode JWT payload (no verification) for local fallback use
+const parseJwt = (token: string) => {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payload = parts[1];
+    // base64url -> base64
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const json = decodeURIComponent(atob(b64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(json);
+  } catch (e) {
+    return null;
   }
 };

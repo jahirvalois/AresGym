@@ -67,49 +67,74 @@ const App: React.FC = () => {
       setAuthView('reset-password');
       if (token) setResetToken(token);
     }
-    // Initialize Google Identity Services if available
-    const clientId = (import.meta as any)?.env?.VITE_GOOGLE_CLIENT_ID;
-    if (clientId && (window as any).google && authView === 'login') {
-      try {
-        (window as any).google.accounts.id.initialize({
-          client_id: clientId,
-          callback: (response: any) => {
-            try {
-              const parseJwt = (token: string) => {
-                const base64Url = token.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c){
-                  return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                return JSON.parse(jsonPayload);
-              };
-              const payload = parseJwt(response.credential);
-              const providerId = payload.sub;
-              const email = payload.email;
-              const name = payload.name;
-              const avatar = payload.picture;
-              // call backend social-login
-              apiService.socialLogin('google', providerId, email, name, avatar).then((res: any) => {
-                const u = res.user || res;
-                if (u) {
-                  const normalized = (u.id || u._id) ? u : u;
-                  localStorage.setItem('ares_session', JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
-                  setUser(normalized);
-                }
-              }).catch(() => {});
-            } catch (e) {
-              console.warn('Failed to handle Google credential', e);
+    // Initialize Google Identity Services when script becomes available
+    const initGoogle = () => {
+      const metaEnv = (import.meta as any)?.env || {};
+      const clientIdFromMeta = metaEnv?.VITE_GOOGLE_CLIENT_ID;
+      const clientIdFromWindow = (window as any).__VITE_GOOGLE_CLIENT_ID;
+      const clientId = clientIdFromMeta || clientIdFromWindow;
+      console.log('[Google debug] import.meta.env keys:', Object.keys(metaEnv || {}), 'VITE_GOOGLE_CLIENT_ID(meta)=', clientIdFromMeta, 'window=', clientIdFromWindow);
+      if (!clientId) return null;
+
+      const tryInit = () => {
+        const haveGoogle = !!(window as any).google;
+        console.log('[Google init] haveGoogle:', haveGoogle);
+        if (!haveGoogle) return false;
+        try {
+          console.log('[Google init] initializing with clientId:', clientId);
+          (window as any).google.accounts.id.initialize({
+            client_id: clientId,
+            callback: (response: any) => {
+              try {
+                const idToken = response.credential;
+                apiService.socialLogin('google', idToken).then((res: any) => {
+                  const u = res.user || res;
+                  if (u) {
+                    const normalized = (u.id || u._id) ? ({ ...u, id: String(u.id || u._id) }) : u;
+                    // If account is not active, show popup and do not sign in
+                    if (normalized.status && normalized.status !== 'ACTIVE') {
+                      alert('Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.');
+                      return;
+                    }
+                    localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+                    setUser(normalized);
+                  }
+                }).catch(() => {});
+              } catch (e) {
+                console.warn('Failed to handle Google credential', e);
+              }
             }
+          });
+          const container = document.getElementById('googleSignInDiv');
+          console.log('[Google init] button container found:', !!container);
+          if (container) {
+            (window as any).google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: 100 });
+            console.log('[Google init] renderButton called successfully');
+            return true;
           }
-        });
-        (window as any).google.accounts.id.renderButton(
-          document.getElementById('googleSignInDiv'),
-          { theme: 'outline', size: 'large', width: '100%' }
-        );
-      } catch (e) {
-        console.warn('Google Identity init failed', e);
-      }
-    }
+          // If container missing, do not consider init complete — allow retries until container appears
+          console.log('[Google init] renderButton skipped, container missing — will retry');
+          return false;
+        } catch (e) {
+          console.warn('Google Identity init failed', e);
+          return false;
+        }
+      };
+
+      if (authView !== 'login') return null;
+      if (tryInit()) return null;
+
+      // Retry until the google script loads (max attempts handled by cleanup)
+      let attempts = 0;
+      const id = window.setInterval(() => {
+        attempts += 1;
+        if (tryInit() || attempts > 20) window.clearInterval(id);
+      }, 500);
+      return () => window.clearInterval(id);
+    };
+
+    const cleanup = initGoogle();
+    return () => { if (typeof cleanup === 'function') cleanup(); };
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {

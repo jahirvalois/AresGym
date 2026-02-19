@@ -1,4 +1,4 @@
-import { initializeEmailService, sendEmail, sendWelcomeEmail, sendPasswordResetEmail } from './lib/emailService';
+import { initializeEmailService, sendEmail, sendWelcomeEmail, sendPasswordResetEmail } from '../lib/emailService';
 import * as dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';

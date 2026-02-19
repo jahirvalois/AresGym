@@ -6,6 +6,20 @@ import { initializeEmailService, sendInviteEmail, sendPasswordResetEmail } from 
 import { ObjectId } from "mongodb";
 import crypto from 'crypto';
 
+async function writeAudit(db: any, userId: string | null, action: string, details: any) {
+    try {
+        const entry = {
+            timestamp: new Date().toISOString(),
+            userId: userId || 'FUNCTION',
+            action,
+            details: typeof details === 'string' ? details : JSON.stringify(details || {})
+        };
+        await db.collection('audit').insertOne(entry);
+    } catch (err) {
+        console.warn('usersHandler audit write failed', err);
+    }
+}
+
 function isValidEmail(email: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -40,29 +54,15 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
         const existingUser = await collection.findOne(buildEmailQuery(normalizedEmail));
 
         if (existingUser) {
-            const { token, hashedToken, expiresAt } = generateResetToken();
-            await collection.updateOne(
-                { _id: existingUser._id },
-                {
-                    $set: {
-                        resetToken: hashedToken,
-                        resetTokenExpiresAt: expiresAt.toISOString()
-                    }
-                }
-            );
-
-            const appUrl = process.env.APP_URL || 'http://localhost:5173';
-            const resetLink = `${appUrl}/reset-password`;
-
-            await initializeEmailService();
-            await sendPasswordResetEmail(normalizedEmail, token, resetLink);
-
+            await writeAudit(db, request.headers['x-user-id'] || null, 'CREATE_USER_EXISTS', { email: normalizedEmail });
+            // Do not auto-send reset email when an admin attempts to create an existing user.
+            // Password reset emails should only be sent from the explicit 'forgot password' flow.
             return {
                 status: 409,
                 jsonBody: {
                     error: "USER_EXISTS",
-                    message: "Usuario existe. Se envio un enlace para cambiar la contrasena (10 min).",
-                    resetEmailSent: true
+                    message: "Usuario existe",
+                    resetEmailSent: false
                 }
             };
         }
@@ -92,6 +92,7 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
         const inviteLink = `${appUrl}/reset-password`;
         await initializeEmailService();
         await sendInviteEmail(normalizedEmail, newUser.name || 'Guerrero', token, inviteLink);
+        await writeAudit(db, request.headers['x-user-id'] || null, 'CREATE_USER', { userId: result.insertedId.toString(), email: normalizedEmail, name: newUser.name });
         
         // Return user without password
         const { password, resetToken, resetTokenExpiresAt, ...userWithoutPassword } = newUser as any;
@@ -111,10 +112,19 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
             }
 
             await collection.updateOne({ _id: new ObjectId(id) }, { $set: updates });
-            return { status: 200, jsonBody: { success: true } };
+            const updated = await collection.findOne({ _id: new ObjectId(id) });
+            await writeAudit(db, request.headers['x-user-id'] || null, 'UPDATE_USER', { userId: id, updates });
+            if (updated) {
+                delete updated.password;
+                delete updated.resetToken;
+                delete updated.resetTokenExpiresAt;
+                return { status: 200, jsonBody: updated };
+            }
+            return { status: 404, jsonBody: { error: 'NOT_FOUND' } };
         }
         if (request.method === 'DELETE') {
             await collection.deleteOne({ _id: new ObjectId(id) });
+            await writeAudit(db, request.headers['x-user-id'] || null, 'DELETE_USER', { userId: id });
             return { status: 204 };
         }
     }

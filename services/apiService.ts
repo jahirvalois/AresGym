@@ -108,7 +108,7 @@ export const apiService = {
       return normalizeUser(created);
     } catch (err: any) {
       if (err?.status === 409 && err?.data?.error === 'USER_EXISTS') {
-        const existsError: any = new Error(err?.data?.message || 'Usuario existe. Se envio enlace para cambiar contrasena.');
+        const existsError: any = new Error(err?.data?.message || 'Usuario existe');
         existsError.code = 'USER_EXISTS';
         existsError.resetEmailSent = !!err?.data?.resetEmailSent;
         throw existsError;
@@ -179,7 +179,16 @@ export const apiService = {
   async getRoutines(role: UserRole, userId?: string) {
     try {
       const query = userId ? `?userId=${userId}` : '';
-      return await request<MonthlyRoutine[]>(`/routines${query}`);
+      const routines = await request<MonthlyRoutine[]>(`/routines${query}`);
+      // normalize _id -> id for routines coming from Mongo/Cosmos
+      return routines.map(r => {
+        if ((r as any).id) return r;
+        if ((r as any)._id) {
+          const idValue = typeof (r as any)._id === 'object' && (r as any)._id.$oid ? (r as any)._id.$oid : String((r as any)._id);
+          return { ...r, id: idValue } as MonthlyRoutine;
+        }
+        return r;
+      });
     } catch {
       const all = getLocal('routines', []);
       return userId ? all.filter((r: any) => r.userId === userId) : all;
@@ -251,7 +260,10 @@ export const apiService = {
   },
 
   async getExerciseCategories() {
-    try { return await request<string[]>('/exercises/categories'); } catch { 
+    try {
+      const bank = await this.getExerciseBank();
+      return Object.keys(bank || {});
+    } catch {
       const bank = getLocal('bank', {});
       return Object.keys(bank);
     }
@@ -276,7 +288,7 @@ export const apiService = {
 
   async deleteCategory(adminId: string, categoryName: string) {
     try {
-      await request<void>(`/exercises/categories/${encodeURIComponent(categoryName)}`, { method: 'DELETE' });
+      await request<void>(`/exercises/bank/category/${encodeURIComponent(categoryName)}`, { method: 'DELETE' });
     } catch {
       const bank = getLocal('bank', {});
       delete bank[categoryName];
@@ -285,16 +297,23 @@ export const apiService = {
   },
 
   async renameCategory(adminId: string, oldName: string, newName: string) {
-    const bank = await this.getExerciseBank();
-    bank[newName] = bank[oldName];
-    delete bank[oldName];
-    saveLocal('bank', bank);
+    const formatted = newName.toUpperCase().startsWith("RUTINA DE ") ? newName.toUpperCase() : `RUTINA DE ${newName.toUpperCase()}`;
+    try {
+      await request<void>('/exercises/bank/category/rename', { method: 'PUT', body: JSON.stringify({ oldName, newName: formatted }) });
+    } catch {
+      const bank = await this.getExerciseBank();
+      bank[formatted] = bank[oldName];
+      delete bank[oldName];
+      saveLocal('bank', bank);
+    }
   },
 
   async renameExercise(adminId: string, category: string, oldName: string, newName: string) {
     const bank = await this.getExerciseBank();
     if (bank[category]) {
       bank[category] = bank[category].map((ex: string) => ex === oldName ? newName : ex);
+      // persist change to server
+      await this.updateExerciseBank(adminId, category, bank[category]);
       saveLocal('bank', bank);
     }
   },

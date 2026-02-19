@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 import { User, UserRole, Exercise } from '../types';
+import Popup from '../components/Popup';
 
 const DAYS_OF_WEEK = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -32,6 +33,15 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeDayForExercise, setActiveDayForExercise] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [popupMessage, setPopupMessage] = useState<string>('');
+  const [showPopup, setShowPopup] = useState<boolean>(false);
+  const [popupType, setPopupType] = useState<'success' | 'warning'>('success');
+
+  useEffect(() => {
+    if (!showPopup) return;
+    const t = setTimeout(() => setShowPopup(false), 5000);
+    return () => clearTimeout(t);
+  }, [showPopup]);
 
   // Correctly fetch exercise categories and bank asynchronously
   useEffect(() => {
@@ -70,14 +80,24 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
   }, [selectedUser, activeTab]);
 
   const handleCreateRoutine = () => {
-    if (!selectedUser) return alert('Selecciona un Guerrero');
+    if (!selectedUser) {
+      setPopupType('warning');
+      setPopupMessage('Selecciona un Guerrero');
+      setShowPopup(true);
+      return;
+    }
     const daysData = DAYS_OF_WEEK.map(d => ({ dayName: d, exercises: weeklySplit[d] || [] }));
     const weeks = [1].map(num => ({ weekNumber: num, days: JSON.parse(JSON.stringify(daysData)) }));
     apiService.createRoutine(currentUser.id, { month: new Date().getMonth() + 1, year: new Date().getFullYear(), userId: selectedUser, weeks });
-    alert('Plan táctico publicado para el guerrero.');
-    setSelectedUser('');
-    setWeeklySplit({});
-    if (setActiveTab) setActiveTab('users');
+    setPopupType('success');
+    setPopupMessage('Plan táctico publicado para el guerrero.');
+    setShowPopup(true);
+    // keep popup visible even if we switch tabs — delay switching to allow users see it
+    setTimeout(() => {
+      setSelectedUser('');
+      setWeeklySplit({});
+      if (setActiveTab) setActiveTab('users');
+    }, 2000);
   };
 
   // addExercise must be async to wait for getExerciseMedia
@@ -210,6 +230,7 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
             </div>
           </div>
         )}
+        <Popup open={showPopup} type={popupType} message={popupMessage} onClose={() => setShowPopup(false)} autoCloseMs={5000} />
       </div>
     );
   }

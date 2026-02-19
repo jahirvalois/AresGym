@@ -4,6 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import cors from 'cors';
+import fs from 'fs';
+import os from 'os';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import nodemailer from 'nodemailer';
@@ -27,6 +29,38 @@ const uri = process.env.MONGODB_URI;
 const dbName = 'AresGymCloud';
 let db;
 let mailer;
+
+// Helper: write audit log entries
+async function writeAuditLog(userId, action, details) {
+  try {
+    if (!db) return;
+    const entry = {
+      timestamp: new Date().toISOString(),
+      userId: userId || 'SYSTEM',
+      action: action || 'UNKNOWN',
+      details: typeof details === 'string' ? details : JSON.stringify(details || {})
+    };
+    await db.collection('audit').insertOne(entry);
+    // also append to local fallback
+    appendLocalAudit(entry).catch(() => {});
+  } catch (err) {
+    console.warn('Failed to write audit log', err);
+    // still append locally when DB write fails
+    try { appendLocalAudit({ timestamp: new Date().toISOString(), userId: userId || 'SYSTEM', action: action || 'UNKNOWN', details: details }); } catch (e) {}
+  }
+}
+
+// Also append to local audit file as fallback so events are preserved
+async function appendLocalAudit(entry) {
+  try {
+    const dir = path.join(__dirname, 'data');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, 'audit.log');
+    fs.appendFileSync(file, JSON.stringify(entry) + os.EOL);
+  } catch (e) {
+    console.warn('Failed to append local audit file', e);
+  }
+}
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -154,23 +188,13 @@ app.post('/api/users', async (req, res) => {
     const existingUser = await db.collection("users").findOne(buildEmailQuery(normalizedEmail));
 
     if (existingUser) {
-      const { token, hashedToken, expiresAt } = generateResetToken();
-      await db.collection("users").updateOne(
-        { _id: existingUser._id },
-        {
-          $set: {
-            resetToken: hashedToken,
-            resetTokenExpiresAt: expiresAt.toISOString()
-          }
-        }
-      );
-
-      await sendResetEmail(normalizedEmail, token);
-
+      await writeAuditLog(req.body.currentUser?.id || 'ADMIN', 'CREATE_USER_EXISTS', { email: normalizedEmail });
+      // User exists: do NOT auto-send reset email here. Mail should only be sent
+      // when the user explicitly requests a password reset (forgot password flow).
       return res.status(409).json({
         error: 'USER_EXISTS',
-        message: 'Usuario existe. Se envio un enlace para cambiar la contrasena (10 min).',
-        resetEmailSent: true
+        message: 'Usuario existe',
+        resetEmailSent: false
       });
     }
 
@@ -186,7 +210,15 @@ app.post('/api/users', async (req, res) => {
 
     const result = await db.collection("users").insertOne(user);
 
-    await sendInviteEmail(normalizedEmail, user.name || 'Guerrero', token);
+    let inviteSent = false;
+    try {
+      await sendInviteEmail(normalizedEmail, user.name || 'Guerrero', token);
+      inviteSent = true;
+    } catch (mailErr) {
+      console.warn('Failed to send invite email', mailErr?.message || mailErr);
+    }
+
+    await writeAuditLog(req.body.currentUser?.id || 'ADMIN', 'CREATE_USER', { userId: result.insertedId.toString(), email: normalizedEmail, name: user.name, inviteSent });
 
     const responseUser = { ...user, _id: result.insertedId };
     delete responseUser.resetToken;
@@ -206,7 +238,18 @@ app.patch('/api/users/:id', async (req, res) => {
       filter = { id: idParam };
     }
     await db.collection("users").updateOne(filter, { $set: updates });
-    res.json({ success: true });
+    // Fetch and return the updated user document
+    const updatedUser = await db.collection('users').findOne(filter);
+    await writeAuditLog(req.body.currentUser?.id || 'ADMIN', 'UPDATE_USER', { userId: idParam, updates });
+    if (updatedUser) {
+      // remove sensitive fields before returning
+      const resp = { ...updatedUser };
+      delete resp.password;
+      delete resp.resetToken;
+      delete resp.resetTokenExpiresAt;
+      return res.json(resp);
+    }
+    return res.status(404).json({ error: 'NOT_FOUND' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -218,6 +261,7 @@ app.delete('/api/users/:id', async (req, res) => {
     } else {
       await db.collection("users").deleteOne({ id: idParam });
     }
+    await writeAuditLog(req.body.currentUser?.id || 'ADMIN', 'DELETE_USER', { userId: idParam });
     res.status(204).send();
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -248,7 +292,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     );
 
     await sendResetEmail(normalizedEmail, token);
-
+    await writeAuditLog(null, 'FORGOT_PASSWORD_REQUEST', { email: normalizedEmail });
     return res.status(200).json({ message: 'If the email exists, a reset link has been sent' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -292,6 +336,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
         }
       }
     );
+    await writeAuditLog(user._id?.toString() || 'UNKNOWN', 'RESET_PASSWORD', { userId: user._id?.toString() });
 
     return res.status(200).json({ message: 'Password reset successfully' });
   } catch (err) {
@@ -304,8 +349,15 @@ app.get('/api/routines', async (req, res) => {
   try {
     const userId = req.query.userId;
     const filter = userId ? { userId } : {};
-    const routines = await db.collection("routines").find(filter).sort({ createdAt: -1 }).toArray();
-    res.json(routines);
+    try {
+      const routines = await db.collection("routines").find(filter).sort({ createdAt: -1 }).toArray();
+      return res.json(routines);
+    } catch (err) {
+      console.warn('Routines query with sort failed, falling back to in-memory sort:', err?.message || err);
+      const routines = await db.collection('routines').find(filter).toArray();
+      routines.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return res.json(routines);
+    }
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -315,6 +367,7 @@ app.post('/api/routines', async (req, res) => {
     const newRoutine = { ...routine, coachId, status: 'ACTIVE', createdAt: new Date().toISOString() };
     await db.collection("routines").updateMany({ userId: routine.userId }, { $set: { status: 'ARCHIVED' } });
     const result = await db.collection("routines").insertOne(newRoutine);
+    await writeAuditLog(coachId || 'COACH', 'CREATE_ROUTINE', { routineId: result.insertedId.toString(), userId: routine.userId });
     res.status(201).json({ ...newRoutine, _id: result.insertedId });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -328,6 +381,7 @@ app.get('/api/exercises/bank', async (req, res) => {
 app.put('/api/exercises/bank', async (req, res) => {
   const { category, exercises } = req.body;
   await db.collection("config").updateOne({ id: 'exerciseBank' }, { $set: { [`content.${category}`]: exercises } }, { upsert: true });
+  await writeAuditLog(req.body.adminId || req.body.currentUser?.id || 'ADMIN', 'UPDATE_EXERCISE_BANK', { category, count: (exercises || []).length });
   res.json({ success: true });
 });
 
@@ -338,6 +392,18 @@ app.post('/api/exercises/bank/category', async (req, res) => {
     if (!category) return res.status(400).json({ error: 'category is required' });
     const key = category;
     await db.collection('config').updateOne({ id: 'exerciseBank' }, { $set: { [`content.${key}`]: [] } }, { upsert: true });
+    await writeAuditLog(req.body.adminId || req.body.currentUser?.id || 'ADMIN', 'CREATE_EXERCISE_CATEGORY', { category: key });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/exercises/bank/category/:category', async (req, res) => {
+  try {
+    const category = decodeURIComponent(req.params.category);
+    const doc = await db.collection('config').findOne({ id: 'exerciseBank' });
+    const bank = doc?.content || {};
+    delete bank[category];
+    await db.collection('config').updateOne({ id: 'exerciseBank' }, { $set: { content: bank } }, { upsert: true });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -348,6 +414,7 @@ app.post('/api/exercises/bank/category/:category/exercise', async (req, res) => 
     const { exercise } = req.body;
     if (!exercise) return res.status(400).json({ error: 'exercise is required' });
     await db.collection('config').updateOne({ id: 'exerciseBank' }, { $addToSet: { [`content.${category}`]: exercise } }, { upsert: true });
+    await writeAuditLog(req.body.adminId || req.body.currentUser?.id || 'ADMIN', 'ADD_EXERCISE', { category, exercise });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -357,6 +424,7 @@ app.delete('/api/exercises/bank/category/:category/exercise/:exercise', async (r
     const category = decodeURIComponent(req.params.category);
     const exercise = decodeURIComponent(req.params.exercise);
     await db.collection('config').updateOne({ id: 'exerciseBank' }, { $pull: { [`content.${category}`]: exercise } });
+    await writeAuditLog(req.body.adminId || req.body.currentUser?.id || 'ADMIN', 'REMOVE_EXERCISE', { category, exercise });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -370,6 +438,7 @@ app.put('/api/exercises/bank/category/rename', async (req, res) => {
     bank[newName] = bank[oldName] || [];
     delete bank[oldName];
     await db.collection('config').updateOne({ id: 'exerciseBank' }, { $set: { content: bank } }, { upsert: true });
+    await writeAuditLog(req.body.adminId || req.body.currentUser?.id || 'ADMIN', 'RENAME_EXERCISE_CATEGORY', { oldName, newName });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -382,6 +451,7 @@ app.get('/api/exercises/media', async (req, res) => {
 app.put('/api/exercises/media', async (req, res) => {
   const { exerciseName, url } = req.body;
   await db.collection("config").updateOne({ id: 'exerciseMedia' }, { $set: { [`content.${exerciseName}`]: url } }, { upsert: true });
+  await writeAuditLog(req.body.adminId || req.body.currentUser?.id || 'ADMIN', 'UPDATE_EXERCISE_MEDIA', { exerciseName, url });
   res.json({ success: true });
 });
 
@@ -425,6 +495,31 @@ const openapiSpec = {
 
 // Serve OpenAPI JSON
 app.get('/openapi.json', (req, res) => res.json(openapiSpec));
+
+// Audit logs endpoint
+app.get('/api/audit', async (req, res) => {
+  try {
+    const logs = await db.collection('audit').find({}).toArray();
+    // Sort in-memory to avoid provider index/order-by restrictions
+    logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return res.json(logs.slice(0, 1000));
+  } catch (err) {
+    console.warn('Audit read failed, falling back to local file:', err?.message || err);
+    // Fallback: read local audit file
+    try {
+      const file = path.join(__dirname, 'data', 'audit.log');
+      if (!fs.existsSync(file)) return res.json([]);
+      const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/).filter(Boolean);
+      const entries = lines.map(l => {
+        try { return JSON.parse(l); } catch { return null; }
+      }).filter(Boolean).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      return res.json(entries.slice(0, 1000));
+    } catch (e) {
+      console.warn('Failed reading local audit file', e?.message || e);
+      return res.json([]);
+    }
+  }
+});
 
 // Serve Swagger UI at /api-docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));

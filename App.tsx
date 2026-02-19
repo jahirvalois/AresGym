@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import Popup from './components/Popup';
 import { User, UserRole, SubscriptionState } from './types';
 import { apiService } from './services/apiService';
 import { brandingService } from './services/brandingService';
@@ -37,6 +38,8 @@ const App: React.FC = () => {
   const [resetToken, setResetToken] = useState('');
 
   const [selectedUserForRoutine, setSelectedUserForRoutine] = useState<string | undefined>(undefined);
+
+  const [popup, setPopup] = useState<{ open: boolean; type?: 'success' | 'warning'; title?: string; message: string }>({ open: false, message: '' });
 
   const [settings, setSettings] = useState(brandingService.getSettings());
 
@@ -93,7 +96,7 @@ const App: React.FC = () => {
                     const normalized = (u.id || u._id) ? ({ ...u, id: String(u.id || u._id) }) : u;
                     // If account is not active, show popup and do not sign in
                     if (normalized.status && normalized.status !== 'ACTIVE') {
-                      alert('Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.');
+                      setPopup({ open: true, type: 'warning', title: 'Cuenta inactiva', message: 'Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.' });
                       return;
                     }
                     localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
@@ -319,7 +322,8 @@ const App: React.FC = () => {
             )}
           </div>
         </div>
-      </BrandingProvider>
+          <Popup open={popup.open} type={popup.type} title={popup.title} message={popup.message} onClose={() => setPopup({ ...popup, open: false })} />
+        </BrandingProvider>
     );
   }
 
@@ -351,6 +355,7 @@ const App: React.FC = () => {
             setActiveTab={setActiveTab}
           />
         )}
+        <Popup open={popup.open} type={popup.type} title={popup.title} message={popup.message} onClose={() => setPopup({ ...popup, open: false })} />
       </Layout>
     </BrandingProvider>
   );

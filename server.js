@@ -344,6 +344,83 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
+// Auth - Social Login (Google)
+app.post('/api/auth/social-login', async (req, res) => {
+  try {
+    const { provider, idToken, providerId, email, name, avatar } = req.body;
+    if (!provider) return res.status(400).json({ error: 'provider is required' });
+
+    let normalizedEmail = null;
+    let finalProviderId = providerId;
+
+    if (provider === 'google' && idToken) {
+      try {
+        const resp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+        if (!resp.ok) return res.status(401).json({ error: 'Invalid Google token' });
+        const tokenInfo = await resp.json();
+        const expectedAud = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+        if (expectedAud && tokenInfo.aud && tokenInfo.aud !== expectedAud) {
+          return res.status(401).json({ error: 'Invalid token audience' });
+        }
+        if (!tokenInfo.email || (tokenInfo.email_verified !== 'true' && tokenInfo.email_verified !== true)) {
+          return res.status(401).json({ error: 'Unverified Google account' });
+        }
+        normalizedEmail = normalizeEmail(String(tokenInfo.email));
+        finalProviderId = tokenInfo.sub || finalProviderId;
+        // prefer tokenInfo values when not provided
+        if (!name) name = tokenInfo.name;
+        if (!avatar) avatar = tokenInfo.picture;
+      } catch (e) {
+        return res.status(500).json({ error: 'Failed to verify Google token' });
+      }
+    }
+
+    if (!normalizedEmail && (!providerId || !email)) {
+      return res.status(400).json({ error: 'providerId and email are required' });
+    }
+
+    if (!normalizedEmail) normalizedEmail = normalizeEmail(email);
+
+    // Try to find existing user by email
+    let user = await db.collection('users').findOne({ email: normalizedEmail });
+    if (user) {
+      // Update provider info if missing
+      const updates = {};
+      if (!user.provider) updates.provider = provider;
+      if (!user.providerId && finalProviderId) updates.providerId = finalProviderId;
+      if (avatar && !user.profilePicture) updates.profilePicture = avatar;
+      if (Object.keys(updates).length > 0) {
+        await db.collection('users').updateOne({ _id: user._id }, { $set: updates });
+      }
+      const { password, resetToken, resetTokenExpiresAt, ...userWithoutSensitive } = user;
+      await writeAuditLog(null, 'SOCIAL_LOGIN_EXISTING', { email: normalizedEmail, provider, providerId: finalProviderId });
+      return res.status(200).json({ user: userWithoutSensitive });
+    }
+
+    // Create new INACTIVE user for social signup
+    const newUser = {
+      email: normalizedEmail,
+      name: name || 'Guerrero',
+      role: 'USER',
+      status: 'INACTIVE',
+      provider,
+      providerId: finalProviderId,
+      profilePicture: avatar,
+      createdAt: new Date().toISOString(),
+      isFirstLogin: true,
+      subscriptionEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    };
+
+    const result = await db.collection('users').insertOne(newUser);
+    await writeAuditLog(null, 'SOCIAL_SIGNUP', { email: normalizedEmail, userId: result.insertedId.toString() });
+    const responseUser = { ...newUser, _id: result.insertedId };
+    return res.status(201).json(responseUser);
+  } catch (err) {
+    console.error('social-login error', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Rutinas
 app.get('/api/routines', async (req, res) => {
   try {

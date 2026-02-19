@@ -46,8 +46,11 @@
         // This is a temporary debug aid.
         // eslint-disable-next-line no-undef
         window.__VITE_GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        window.__VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+        // Fallback in case import.meta.env wasn't injected by Vite in modules
+        window.__VITE_API_BASE_URL = window.__VITE_API_BASE_URL || 'http://localhost:8081';
         // eslint-disable-next-line no-console
-        console.log('[index debug] VITE_GOOGLE_CLIENT_ID=', window.__VITE_GOOGLE_CLIENT_ID);
+        console.log('[index debug] VITE_GOOGLE_CLIENT_ID=', window.__VITE_GOOGLE_CLIENT_ID, 'VITE_API_BASE_URL=', window.__VITE_API_BASE_URL);
       } catch (e) {
         // eslint-disable-next-line no-console
         console.warn('[index debug] import.meta.env not available in index.html', e);

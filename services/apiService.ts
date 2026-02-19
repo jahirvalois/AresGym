@@ -10,7 +10,7 @@ import {
   SubscriptionState 
 } from '../types';
 
-const rawApiBase = (import.meta as any)?.env?.VITE_API_BASE_URL || '/api';
+const rawApiBase = (import.meta as any)?.env?.VITE_API_BASE_URL || (typeof window !== 'undefined' ? (window as any).__VITE_API_BASE_URL : undefined) || '/api';
 const API_BASE = rawApiBase === '/api'
   ? '/api'
   : (rawApiBase.endsWith('/api') ? rawApiBase : `${rawApiBase}/api`);

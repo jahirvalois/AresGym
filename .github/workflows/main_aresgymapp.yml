@@ -84,6 +84,10 @@ jobs:
             --settings \
               NODE_ENV="production" \
               WEBSITE_NODE_DEFAULT_VERSION="24"
+      
+      - name: Restart Azure Web App
+        run: |
+          az webapp restart --name aresgymapp --resource-group AresGym_RG
 
       - name: Verify deployment
         run: |

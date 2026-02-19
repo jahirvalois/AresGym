@@ -331,7 +331,13 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                     )}
                   </td>
                   <td className="p-8 font-black text-xs">{u.role === UserRole.USER ? new Date(u.subscriptionEndDate).toLocaleDateString() : 'INFINITO'}</td>
-                  <td className="p-8 text-right space-x-4"><button onClick={() => setEditingUser(u)} className="text-blue-600 font-black uppercase text-[10px] hover:underline">Ajustar</button><button onClick={() => handleDeleteUser(u.id)} className="text-red-500 font-black uppercase text-[10px] hover:underline">Borrar</button></td>
+                  <td className="p-8 text-right space-x-4">
+                    <button onClick={() => setEditingUser(u)} className="text-blue-600 font-black uppercase text-[10px] hover:underline">Ajustar</button>
+                    {u.status !== UserStatus.ACTIVE && (
+                      <button onClick={async () => { try { await apiService.updateUser(currentUser, u.id, { status: UserStatus.ACTIVE, isFirstLogin: false }); setNotification({ type: 'success', message: 'Guerrero activado.' }); refreshData(); } catch (err:any) { setNotification({ type: 'error', message: err?.message || 'No se pudo activar.' }); } }} className="text-green-600 font-black uppercase text-[10px] hover:underline">Activar</button>
+                    )}
+                    <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 font-black uppercase text-[10px] hover:underline">Borrar</button>
+                  </td>
                 </tr>
               ))}
             </tbody>

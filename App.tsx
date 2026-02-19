@@ -67,6 +67,49 @@ const App: React.FC = () => {
       setAuthView('reset-password');
       if (token) setResetToken(token);
     }
+    // Initialize Google Identity Services if available
+    const clientId = (import.meta as any)?.env?.VITE_GOOGLE_CLIENT_ID;
+    if (clientId && (window as any).google && authView === 'login') {
+      try {
+        (window as any).google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response: any) => {
+            try {
+              const parseJwt = (token: string) => {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c){
+                  return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+              };
+              const payload = parseJwt(response.credential);
+              const providerId = payload.sub;
+              const email = payload.email;
+              const name = payload.name;
+              const avatar = payload.picture;
+              // call backend social-login
+              apiService.socialLogin('google', providerId, email, name, avatar).then((res: any) => {
+                const u = res.user || res;
+                if (u) {
+                  const normalized = (u.id || u._id) ? u : u;
+                  localStorage.setItem('ares_session', JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+                  setUser(normalized);
+                }
+              }).catch(() => {});
+            } catch (e) {
+              console.warn('Failed to handle Google credential', e);
+            }
+          }
+        });
+        (window as any).google.accounts.id.renderButton(
+          document.getElementById('googleSignInDiv'),
+          { theme: 'outline', size: 'large', width: '100%' }
+        );
+      } catch (e) {
+        console.warn('Google Identity init failed', e);
+      }
+    }
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -222,6 +265,7 @@ const App: React.FC = () => {
                    <button type="button" onClick={() => setAuthView('forgot-password')} className="text-[10px] font-black uppercase italic text-primary hover:text-black">¿Olvidaste tu contraseña?</button>
                 </div>
                 <button type="submit" className={loginButtonClasses}>Entrar</button>
+                <div id="googleSignInDiv" className="mt-4"></div>
               </form>
             ) : authView === 'forgot-password' ? (
               <form onSubmit={handleRequestReset} className="space-y-6">

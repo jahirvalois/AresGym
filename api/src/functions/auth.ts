@@ -127,7 +127,7 @@ async function forgotPasswordHandler(request: HttpRequest, context: InvocationCo
                 }
             );
 
-            const appUrl = process.env.APP_URL || 'http://localhost:5173';
+            const appUrl = process.env.APP_URL || 'https://aresgym.com.mx';
             const resetLink = `${appUrl}/reset-password`;
 
             await initializeEmailService();
@@ -238,6 +238,70 @@ async function resetPasswordHandler(request: HttpRequest, context: InvocationCon
     };
 }
 
+// SOCIAL LOGIN HANDLER - Create or return user from external provider
+async function socialLoginHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    const { db } = await connectToDatabase();
+    const usersCollection = db.collection('users');
+
+    if (request.method === 'POST') {
+        try {
+            const body: any = await request.json();
+            const { provider, providerId, email, name, avatar } = body;
+
+            if (!provider || !providerId || !email) {
+                return { status: 400, jsonBody: { error: 'provider, providerId and email are required' } };
+            }
+
+            if (!isValidEmail(email)) {
+                return { status: 400, jsonBody: { error: 'Invalid email format' } };
+            }
+
+            const normalizedEmail = email.trim().toLowerCase();
+
+            // Try to find existing user by email
+            let user = await usersCollection.findOne({ email: normalizedEmail });
+
+            if (user) {
+                // Ensure provider info is set
+                const updates: any = {};
+                if (!user.provider) updates.provider = provider;
+                if (!user.providerId) updates.providerId = providerId;
+                if (avatar && !user.profilePicture) updates.profilePicture = avatar;
+                if (Object.keys(updates).length > 0) {
+                    try { await usersCollection.updateOne({ _id: user._id }, { $set: updates }); } catch (e) { context.log && context.log.warn('Failed to update provider info', e); }
+                }
+
+                const { password, ...userWithoutPassword } = user as any;
+                return { status: 200, jsonBody: { user: userWithoutPassword } };
+            }
+
+            // Create new user as 'guerrero' (regular USER role)
+            const newUser: any = {
+                email: normalizedEmail,
+                name: name || 'Guerrero',
+                role: 'USER',
+                status: 'ACTIVE',
+                provider,
+                providerId,
+                profilePicture: avatar,
+                createdAt: new Date().toISOString(),
+                isFirstLogin: false
+            };
+
+            const result = await usersCollection.insertOne(newUser);
+            await usersCollection.updateOne({ _id: result.insertedId }, { $unset: { password: 1, resetToken: 1, resetTokenExpiresAt: 1 } });
+
+            const { password: _, ...saved } = newUser as any;
+            return { status: 201, jsonBody: { ...saved, _id: result.insertedId } };
+
+        } catch (error) {
+            return { status: 500, jsonBody: { error: 'Internal server error' } };
+        }
+    }
+
+    return { status: 405, body: 'Method not allowed' };
+}
+
 // HTTP Triggers
 app.http('login', {
     methods: ['POST'],
@@ -258,4 +322,11 @@ app.http('resetPassword', {
     route: 'auth/reset-password',
     authLevel: 'anonymous',
     handler: resetPasswordHandler
+});
+
+app.http('socialLogin', {
+    methods: ['POST'],
+    route: 'auth/social-login',
+    authLevel: 'anonymous',
+    handler: socialLoginHandler
 });

@@ -105,7 +105,7 @@ async function getTransporter() {
 }
 
 async function sendResetEmail(userEmail, resetToken) {
-  const appUrl = process.env.APP_URL || 'http://localhost:5173';
+  const appUrl = process.env.APP_URL || 'https://aresgym.com.mx';
   const resetUrl = `${appUrl}/reset-password?token=${resetToken}`;
   const transporter = await getTransporter();
 
@@ -131,7 +131,7 @@ async function sendResetEmail(userEmail, resetToken) {
 }
 
 async function sendInviteEmail(userEmail, userName, inviteToken) {
-  const appUrl = process.env.APP_URL || 'http://localhost:5173';
+  const appUrl = process.env.APP_URL || 'https://aresgym.com.mx';
   const inviteUrl = `${appUrl}/reset-password?token=${inviteToken}`;
   const transporter = await getTransporter();
 

@@ -36,10 +36,11 @@ async function runTests() {
 
     // Test 4: Send password reset email
     console.log('Test 4: Send Password Reset Email');
+    const appUrl = process.env.APP_URL || 'https://aresgym.com.mx';
     const resetResult = await sendPasswordResetEmail(
       testEmail,
       'abc123xyz',
-      'http://localhost:5173/reset-password'
+      `${appUrl}/reset-password`
     );
     console.log('✅ Passed - Message ID:', resetResult.messageId);
     console.log('');

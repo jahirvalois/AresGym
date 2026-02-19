@@ -88,7 +88,7 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
 
         const result = await collection.insertOne(newUser);
 
-        const appUrl = process.env.APP_URL || 'http://localhost:5173';
+        const appUrl = process.env.APP_URL || 'https://aresgym.com.mx';
         const inviteLink = `${appUrl}/reset-password`;
         await initializeEmailService();
         await sendInviteEmail(normalizedEmail, newUser.name || 'Guerrero', token, inviteLink);

@@ -9,11 +9,10 @@ import {
   AuditLog,
   SubscriptionState 
 } from './types';
-import { MOCK_USERS } from './constants';
 import { EXERCISE_BANK, EXERCISE_CATEGORIES } from './exerciseBank';
 
 // Simulated DB
-let users: User[] = JSON.parse(localStorage.getItem('gym_users') || JSON.stringify(MOCK_USERS));
+let users: User[] = JSON.parse(localStorage.getItem('gym_users') || '[]');
 let routines: MonthlyRoutine[] = JSON.parse(localStorage.getItem('gym_routines') || '[]');
 let logs: WorkoutLog[] = JSON.parse(localStorage.getItem('gym_logs') || '[]');
 let auditLogs: AuditLog[] = JSON.parse(localStorage.getItem('gym_audit') || '[]');

@@ -121,7 +121,7 @@ export async function sendWelcomeEmail(userEmail: string, userName: string) {
       <h2>Welcome to Ares Gym, ${userName}!</h2>
       <p>Your account has been created successfully.</p>
       <p>You can now log in and start managing your fitness journey with us.</p>
-      <a href="${process.env.APP_URL || 'http://localhost:5173'}/login" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0;">
+      <a href="${process.env.APP_URL || 'https://aresgym.com.mx'}/login" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0;">
         Go to Login
       </a>
       <p>If you have any questions, feel free to contact us.</p>
@@ -134,6 +134,6 @@ export async function sendWelcomeEmail(userEmail: string, userName: string) {
     to: userEmail,
     subject: 'Welcome to Ares Gym',
     html,
-    text: `Welcome to Ares Gym, ${userName}!\n\nYour account has been created successfully. Visit ${process.env.APP_URL || 'http://localhost:5173'} to log in.`,
+    text: `Welcome to Ares Gym, ${userName}!\n\nYour account has been created successfully. Visit ${process.env.APP_URL || 'https://aresgym.com.mx'} to log in.`,
   });
 }

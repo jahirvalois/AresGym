@@ -250,7 +250,9 @@ async function socialLoginHandler(request: HttpRequest, context: InvocationConte
     if (request.method === 'POST') {
         try {
             const body: any = await request.json();
-            const { provider, providerId, email, name, avatar, idToken } = body;
+            let { provider, providerId, email, name, avatar, idToken } = body;
+            let resolvedName: string | undefined = undefined;
+            let resolvedAvatar: string | undefined = undefined;
 
             if (!provider) return { status: 400, jsonBody: { error: 'provider is required' } };
 
@@ -271,10 +273,16 @@ async function socialLoginHandler(request: HttpRequest, context: InvocationConte
                         return { status: 401, jsonBody: { error: 'Unverified Google account' } };
                     }
                     normalizedEmail = String(tokenInfo.email).trim().toLowerCase();
-                    // populate fields from token
+                    // populate fields from token (also update local vars)
                     body.providerId = tokenInfo.sub;
                     body.name = body.name || tokenInfo.name;
                     body.avatar = body.avatar || tokenInfo.picture;
+                    providerId = body.providerId;
+                    name = body.name;
+                    avatar = body.avatar;
+                    // resolved values to use when creating/updating user
+                    resolvedName = name || tokenInfo.name || 'Guerrero';
+                    resolvedAvatar = avatar || tokenInfo.picture;
                 } catch (e) {
                     return { status: 500, jsonBody: { error: 'Failed to verify Google token' } };
                 }
@@ -297,7 +305,7 @@ async function socialLoginHandler(request: HttpRequest, context: InvocationConte
                 const updates: any = {};
                 if (!user.provider) updates.provider = provider;
                 if (!user.providerId) updates.providerId = providerId;
-                if (avatar && !user.profilePicture) updates.profilePicture = avatar;
+                if ((typeof resolvedAvatar !== 'undefined') && !user.profilePicture) updates.profilePicture = resolvedAvatar;
                 if (Object.keys(updates).length > 0) {
                     try { await usersCollection.updateOne({ _id: user._id }, { $set: updates }); } catch (e) {
                         const l: any = context.log;
@@ -316,12 +324,12 @@ async function socialLoginHandler(request: HttpRequest, context: InvocationConte
             // For social signups, create account as INACTIVE and mark as first login
             const newUser: any = {
                 email: normalizedEmail,
-                name: name || 'Guerrero',
+                name: (typeof resolvedName !== 'undefined' ? resolvedName : (name || 'Guerrero')),
                 role: 'USER',
                 status: 'INACTIVE',
                 provider,
                 providerId,
-                profilePicture: avatar,
+                profilePicture: (typeof resolvedAvatar !== 'undefined' ? resolvedAvatar : avatar),
                 createdAt: new Date().toISOString(),
                 isFirstLogin: true
             };

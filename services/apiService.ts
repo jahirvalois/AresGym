@@ -10,7 +10,7 @@ import {
   SubscriptionState 
 } from '../types';
 
-const rawApiBase = (import.meta as any)?.env?.VITE_API_BASE_URL || (typeof window !== 'undefined' ? (window as any).__VITE_API_BASE_URL : undefined) || '/api';
+const rawApiBase = (typeof window !== 'undefined' ? (window as any).__VITE_API_BASE_URL : undefined) || (import.meta as any)?.env?.VITE_API_BASE_URL || '/api';
 const API_BASE = rawApiBase === '/api'
   ? '/api'
   : (rawApiBase.endsWith('/api') ? rawApiBase : `${rawApiBase}/api`);
@@ -88,19 +88,15 @@ export const apiService = {
   async init() {
     console.log("Ares Gym Pro: Sistema Híbrido inicializado.");
     try {
-      // Migrate any local social-login users to INACTIVE and mark as first-login
+      // Remove any local users created by social signups (we want them in the DB)
       const users = getLocal('users', []);
-      let changed = false;
-      const migrated = users.map((u: any) => {
-        if ((u.provider || u.providerId) && u.status === UserStatus.ACTIVE) {
-          changed = true;
-          return { ...u, status: UserStatus.INACTIVE, isFirstLogin: true };
-        }
-        return u;
+      const filtered = users.filter((u: any) => {
+        // keep only manual accounts (no provider/origin)
+        return !(u?.provider || u?.providerId || u?.origin);
       });
-      if (changed) {
-        saveLocal('users', migrated);
-        console.log('[apiService] migrated local social users to INACTIVE');
+      if (filtered.length !== users.length) {
+        saveLocal('users', filtered);
+        console.log('[apiService] removed local social users from localStorage');
       }
     } catch (e) {
       console.warn('[apiService] migration check failed', e);
@@ -381,34 +377,9 @@ export const apiService = {
     try {
       return await this.post('/auth/social-login', payload);
     } catch (err) {
-      // Local fallback: find or create user in local storage
-      const users = getLocal('users', []);
-      // Try to extract data from id_token if available
-      let decoded: any = null;
-      if (isIdToken) decoded = parseJwt(providerIdOrIdToken as string);
-      const normalized = (email || decoded?.email || '').trim().toLowerCase();
-      let user = users.find((u: any) => (u.email || '').toLowerCase() === normalized);
-      if (user) return { user };
-      const chosenName = name || decoded?.name || 'Guerrero';
-      const chosenAvatar = avatar || decoded?.picture || '';
-      const chosenProviderId = isIdToken ? (decoded?.sub || undefined) : providerIdOrIdToken;
-      const newUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        email: normalized,
-        name: chosenName,
-        role: UserRole.USER,
-        status: UserStatus.INACTIVE,
-        subscriptionEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        createdAt: new Date().toISOString(),
-        isFirstLogin: true,
-        profilePicture: chosenAvatar
-      } as User;
-      // attach provider info for migration/inspection
-      (newUser as any).provider = provider;
-      if (chosenProviderId) (newUser as any).providerId = chosenProviderId;
-      const updated = [...users, newUser];
-      saveLocal('users', updated);
-      return { user: newUser };
+      console.warn('[apiService] socialLogin failed:', err);
+      // Don't create localStorage users for social signups — require server persistence
+      throw err;
     }
   }
 };

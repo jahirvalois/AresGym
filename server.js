@@ -24,6 +24,17 @@ const PORT = process.env.PORT || 8080;
 app.use(cors());
 app.use(express.json());
 
+function parseJwt(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payload = parts[1];
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const buf = Buffer.from(b64, 'base64');
+    return JSON.parse(buf.toString('utf8'));
+  } catch (e) { return null; }
+}
+
 // MongoDB Connection
 const uri = process.env.MONGODB_URI;
 const dbName = 'AresGymCloud';
@@ -347,7 +358,9 @@ app.post('/api/auth/reset-password', async (req, res) => {
 // Auth - Social Login (Google)
 app.post('/api/auth/social-login', async (req, res) => {
   try {
-    const { provider, idToken, providerId, email, name, avatar } = req.body;
+    let { provider, idToken, providerId, email, name, avatar } = req.body;
+    let resolvedName;
+    let resolvedAvatar;
     if (!provider) return res.status(400).json({ error: 'provider is required' });
 
     let normalizedEmail = null;
@@ -367,10 +380,20 @@ app.post('/api/auth/social-login', async (req, res) => {
         }
         normalizedEmail = normalizeEmail(String(tokenInfo.email));
         finalProviderId = tokenInfo.sub || finalProviderId;
-        // prefer tokenInfo values when not provided
-        if (!name) name = tokenInfo.name;
-        if (!avatar) avatar = tokenInfo.picture;
+        // Force-resolve token values (prefer explicit body, otherwise tokenInfo)
+        resolvedName = (name && name.trim()) ? name : (tokenInfo.name || undefined);
+        resolvedAvatar = (avatar && avatar.trim()) ? avatar : (tokenInfo.picture || undefined);
       } catch (e) {
+        console.error('google token verify failed', e);
+        try {
+          const logDir = path.join(__dirname, 'data');
+          if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+          const logFile = path.join(logDir, 'social_login_error.log');
+          const msg = `${new Date().toISOString()} - ${e && e.stack ? e.stack : String(e)}\n`;
+          fs.appendFileSync(logFile, msg);
+        } catch (ee) {
+          console.warn('Failed to write social login error log', ee);
+        }
         return res.status(500).json({ error: 'Failed to verify Google token' });
       }
     }
@@ -381,6 +404,17 @@ app.post('/api/auth/social-login', async (req, res) => {
 
     if (!normalizedEmail) normalizedEmail = normalizeEmail(email);
 
+    // If we still don't have resolvedName/avatar, try to decode the idToken payload
+    if (!resolvedName && idToken) {
+      try {
+        const parsed = parseJwt(idToken);
+        if (parsed) {
+          if (!resolvedName && parsed.name) resolvedName = parsed.name;
+          if (!resolvedAvatar && parsed.picture) resolvedAvatar = parsed.picture;
+        }
+      } catch (e) { /* ignore */ }
+    }
+
     // Try to find existing user by email
     let user = await db.collection('users').findOne({ email: normalizedEmail });
     if (user) {
@@ -388,7 +422,9 @@ app.post('/api/auth/social-login', async (req, res) => {
       const updates = {};
       if (!user.provider) updates.provider = provider;
       if (!user.providerId && finalProviderId) updates.providerId = finalProviderId;
-      if (avatar && !user.profilePicture) updates.profilePicture = avatar;
+      if ((typeof resolvedAvatar !== 'undefined') && !user.profilePicture) updates.profilePicture = resolvedAvatar;
+      // If existing user has default placeholder name, prefer Google name
+      if (resolvedName && (!user.name || user.name === 'Guerrero')) updates.name = resolvedName;
       if (Object.keys(updates).length > 0) {
         await db.collection('users').updateOne({ _id: user._id }, { $set: updates });
       }
@@ -400,12 +436,12 @@ app.post('/api/auth/social-login', async (req, res) => {
     // Create new INACTIVE user for social signup
     const newUser = {
       email: normalizedEmail,
-      name: name || 'Guerrero',
+      name: (typeof resolvedName !== 'undefined' ? resolvedName : (name || 'Guerrero')),
       role: 'USER',
       status: 'INACTIVE',
       provider,
       providerId: finalProviderId,
-      profilePicture: avatar,
+      profilePicture: (typeof resolvedAvatar !== 'undefined' ? resolvedAvatar : avatar),
       createdAt: new Date().toISOString(),
       isFirstLogin: true,
       subscriptionEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
@@ -611,6 +647,15 @@ app.get('*', (req, res) => {
 
 // Start
 connectDB().then(() => {
+  // Log important env values for debugging social login
+  try {
+    console.log('ENV GOOGLE_CLIENT_ID =', process.env.GOOGLE_CLIENT_ID);
+    console.log('ENV VITE_GOOGLE_CLIENT_ID =', process.env.VITE_GOOGLE_CLIENT_ID);
+    console.log('ENV VITE_API_BASE_URL =', process.env.VITE_API_BASE_URL);
+  } catch (e) {
+    console.warn('Failed to read env vars', e);
+  }
+
   app.listen(PORT, () => {
     console.log(`Servidor Ares Pro corriendo en puerto ${PORT}`);
     console.log(`Swagger UI available at http://localhost:${PORT}/api-docs`);

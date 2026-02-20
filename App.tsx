@@ -250,6 +250,17 @@ const App: React.FC = () => {
     localStorage.removeItem(SESSION_KEY);
   };
 
+  // Redirect to home/login after logout to ensure UI resets and no private routes remain visible
+  const logoutAndRedirect = () => {
+    handleLogout();
+    try {
+      // Use replace to avoid leaving session data in history
+      window.location.replace('/');
+    } catch (e) {
+      window.location.href = '/';
+    }
+  };
+
   if (!dbReady) return <div className="min-h-screen bg-black flex items-center justify-center font-black text-primary italic text-2xl uppercase tracking-tighter">Iniciando Servidores...</div>;
 
   const loginButtonClasses = "w-full bg-black text-primary py-5 rounded-[1.5rem] font-black text-lg shadow-xl border-2 border-black hover:bg-yellow-500 hover:text-black hover:border-black transition-all uppercase italic";
@@ -329,7 +340,7 @@ const App: React.FC = () => {
 
   return (
     <BrandingProvider>
-      <Layout user={user} onLogout={handleLogout} activeTab={activeTab} setActiveTab={setActiveTab}>
+      <Layout user={user} onLogout={logoutAndRedirect} activeTab={activeTab} setActiveTab={setActiveTab}>
         {activeTab === 'dashboard' && user.role === UserRole.USER && <DashboardUser currentUser={user} />}
 
         {activeTab === 'users' && user.role === UserRole.ADMIN && (

@@ -33,6 +33,15 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
   const [auditSearch, setAuditSearch] = useState('');
   const [auditFilter, setAuditFilter] = useState('');
 
+  // Pagination for users table (kept at top-level to satisfy Hooks rules)
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  useEffect(() => {
+    // reset to first page when filters or data change
+    setPage(1);
+  }, [searchQuery, sortConfig, users.length]);
+
   const [newUser, setNewUser] = useState({ 
     name: '', 
     email: '', 
@@ -259,6 +268,8 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
 
   if (activeTab === 'users') {
     const sortedUsers = getSortedUsers();
+    const totalPages = Math.max(1, Math.ceil(sortedUsers.length / pageSize));
+    const paginatedUsers = sortedUsers.slice((page - 1) * pageSize, page * pageSize);
     
     return (
       <div className="space-y-8 animate-in fade-in">
@@ -287,68 +298,86 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
             <button className="bg-primary text-black border-2 border-primary font-black uppercase italic p-4 rounded-xl shadow-lg hover:bg-black hover:text-yellow-400 hover:border-yellow-400 transition-all">Reclutar</button>
           </form>
         </section>
-        <div className="bg-white rounded-[3rem] shadow-xl border overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-900 text-white text-[10px] uppercase">
+        <div className="bg-white rounded-xl shadow-xl border overflow-hidden">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full table-fixed text-left">
+            <thead className="bg-slate-900 text-white text-[9px] uppercase">
               <tr>
-                <th className="p-8 cursor-pointer hover:text-primary transition-colors select-none" onClick={() => handleSort('name')}>
-                  <div className="flex items-center space-x-2">
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-2/5" onClick={() => handleSort('name')}>
+                  <div className="flex items-center space-x-2 text-xs md:text-sm">
                     <span>Nombre / Acceso</span>
-                    {sortConfig?.key === 'name' && (<span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
+                    {sortConfig?.key === 'name' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
-                <th className="p-8 cursor-pointer hover:text-primary transition-colors select-none" onClick={() => handleSort('role')}>
-                  <div className="flex items-center space-x-2">
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-20" onClick={() => handleSort('role')}>
+                  <div className="flex items-center space-x-2 text-xs md:text-sm">
                     <span>Rol</span>
-                    {sortConfig?.key === 'role' && (<span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
+                    {sortConfig?.key === 'role' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
-                <th className="p-8 cursor-pointer hover:text-primary transition-colors select-none">
-                  <div className="flex items-center space-x-2">
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-32">
+                  <div className="flex items-center space-x-2 text-xs md:text-sm">
                     <span>Origen</span>
                   </div>
                 </th>
-                <th className="p-8 cursor-pointer hover:text-primary transition-colors select-none" onClick={() => handleSort('status')}>
-                  <div className="flex items-center space-x-2">
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-28" onClick={() => handleSort('status')}>
+                  <div className="flex items-center space-x-2 text-xs md:text-sm">
                     <span>Estatus</span>
-                    {sortConfig?.key === 'status' && (<span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
+                    {sortConfig?.key === 'status' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
-                <th className="p-8 cursor-pointer hover:text-primary transition-colors select-none" onClick={() => handleSort('vencimiento')}>
-                  <div className="flex items-center space-x-2">
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-28" onClick={() => handleSort('vencimiento')}>
+                  <div className="flex items-center space-x-2 text-xs md:text-sm">
                     <span>Vencimiento</span>
-                    {sortConfig?.key === 'vencimiento' && (<span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
+                    {sortConfig?.key === 'vencimiento' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
-                <th className="p-8 text-right">Acciones</th>
+                <th className="p-1 md:p-2 text-right w-28">
+                  <div className="text-xs md:text-sm"><span>Acciones</span></div>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {sortedUsers.map(u => (
+              {paginatedUsers.map(u => (
                 <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-8"><p className="font-black uppercase italic text-slate-900">{u.name}</p><p className="text-[10px] text-slate-400">{u.email}</p></td>
-                  <td className="p-8 font-black text-xs uppercase text-primary">{u.role}</td>
-                  <td className="p-8 font-black text-xs uppercase">{(u.origin || u.provider || 'manual').toString().toUpperCase()}</td>
-                  <td className="p-8">
+                  <td className="p-1 md:p-2"><p className="font-black uppercase italic text-slate-900 text-xs md:text-sm">{u.name}</p><p className="text-[9px] text-slate-400">{u.email}</p></td>
+                  <td className="p-1 md:p-2 font-black text-[9px] uppercase text-primary">{u.role}</td>
+                  <td className="p-1 md:p-2 font-black text-[9px] uppercase">{(u.origin || u.provider || 'manual').toString().toUpperCase()}</td>
+                  <td className="p-1 md:p-2">
                     {u.isFirstLogin ? (
-                      <span className="text-[9px] font-black uppercase px-3 py-1 rounded-lg bg-amber-100 text-amber-700">INVITACION ENVIADA</span>
+                      <span className="text-[8px] font-black uppercase px-2 py-1 rounded-lg bg-amber-100 text-amber-700">INVITACION ENVIADA</span>
                     ) : (
-                      <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-lg ${u.status === UserStatus.ACTIVE ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{u.status}</span>
+                      <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-lg ${u.status === UserStatus.ACTIVE ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{u.status}</span>
                     )}
                   </td>
-                  <td className="p-8 font-black text-xs">{u.role === UserRole.USER ? new Date(u.subscriptionEndDate).toLocaleDateString() : 'INFINITO'}</td>
-                  <td className="p-8 text-right space-x-4">
-                    <button onClick={() => setEditingUser(u)} className="text-blue-600 font-black uppercase text-[10px] hover:underline">Ajustar</button>
+                  <td className="p-1 md:p-2 font-black text-[9px]">{u.role === UserRole.USER ? new Date(u.subscriptionEndDate).toLocaleDateString() : 'INFINITO'}</td>
+                  <td className="p-1 md:p-2 text-right space-x-2 text-[10px]">
+                    <button onClick={() => setEditingUser(u)} className="text-blue-600 font-black uppercase hover:underline">Ajustar</button>
                     {u.status !== UserStatus.ACTIVE && (
-                      <button onClick={async () => { try { await apiService.updateUser(currentUser, u.id, { status: UserStatus.ACTIVE, isFirstLogin: false }); setNotification({ type: 'success', message: 'Guerrero activado.' }); refreshData(); } catch (err:any) { setNotification({ type: 'error', message: err?.message || 'No se pudo activar.' }); } }} className="text-green-600 font-black uppercase text-[10px] hover:underline">Activar</button>
+                      <button onClick={async () => { try { await apiService.updateUser(currentUser, u.id, { status: UserStatus.ACTIVE, isFirstLogin: false }); setNotification({ type: 'success', message: 'Guerrero activado.' }); refreshData(); } catch (err:any) { setNotification({ type: 'error', message: err?.message || 'No se pudo activar.' }); } }} className="text-green-600 font-black uppercase hover:underline">Activar</button>
                     )}
-                    <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 font-black uppercase text-[10px] hover:underline">Borrar</button>
+                    <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 font-black uppercase hover:underline">Borrar</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-50">
+              <div className="text-sm text-slate-600">Mostrando {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, sortedUsers.length)} de {sortedUsers.length} usuarios</div>
+              <div className="flex items-center space-x-2">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1 bg-white border rounded disabled:opacity-50">Anterior</button>
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: totalPages }).map((_, i) => (
+                    <button key={i} onClick={() => setPage(i + 1)} className={`px-2 py-1 rounded ${page === i + 1 ? 'bg-slate-900 text-white' : 'bg-white border'}`}>{i + 1}</button>
+                  ))}
+                </div>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1 bg-white border rounded disabled:opacity-50">Siguiente</button>
+              </div>
+            </div>
+          )}
         </div>
+      </div>
         {editingUser && (
           <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[250] animate-in zoom-in">
             <div className="bg-white w-full max-w-md rounded-[3rem] p-10 space-y-6">

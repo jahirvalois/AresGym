@@ -21,7 +21,16 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
+// Add relaxed COOP/COEP headers to avoid opener-policy blocking postMessage from tooling
+app.use((req, res, next) => {
+  try {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  } catch (e) {}
+  return next();
+});
 app.use(express.json());
 
 function parseJwt(token) {

@@ -1,4 +1,4 @@
-
+/*
 export const EXERCISE_CATEGORIES = [
   "RUTINA DE PECHO",
   "RUTINA DE PIERNA",
@@ -70,3 +70,4 @@ export const EXERCISE_BANK: Record<string, string[]> = {
     "RANITAS EN BANCO ACOSTADA", "HIPEREXTENSION"
   ]
 };
+*/

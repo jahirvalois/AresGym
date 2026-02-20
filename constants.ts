@@ -22,6 +22,7 @@ nextMonth.setMonth(now.getMonth() + 1);
 const fiveDaysAgo = new Date(now);
 fiveDaysAgo.setDate(now.getDate() - 5);
 
+/* 
 export const MOCK_USERS: User[] = [
   {
     id: 'admin-01',
@@ -90,3 +91,4 @@ export const MOCK_USERS: User[] = [
     // Sin password inicial para forzar flujo de configuración
   }
 ];
+*/

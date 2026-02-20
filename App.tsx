@@ -76,15 +76,13 @@ const App: React.FC = () => {
       const clientIdFromMeta = metaEnv?.VITE_GOOGLE_CLIENT_ID;
       const clientIdFromWindow = (window as any).__VITE_GOOGLE_CLIENT_ID;
       const clientId = clientIdFromMeta || clientIdFromWindow;
-      console.log('[Google debug] import.meta.env keys:', Object.keys(metaEnv || {}), 'VITE_GOOGLE_CLIENT_ID(meta)=', clientIdFromMeta, 'window=', clientIdFromWindow);
       if (!clientId) return null;
 
       const tryInit = () => {
         const haveGoogle = !!(window as any).google;
-        console.log('[Google init] haveGoogle:', haveGoogle);
         if (!haveGoogle) return false;
         try {
-          console.log('[Google init] initializing with clientId:', clientId);
+          
           (window as any).google.accounts.id.initialize({
             client_id: clientId,
             callback: (response: any) => {
@@ -109,14 +107,12 @@ const App: React.FC = () => {
             }
           });
           const container = document.getElementById('googleSignInDiv');
-          console.log('[Google init] button container found:', !!container);
           if (container) {
             (window as any).google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: 100 });
-            console.log('[Google init] renderButton called successfully');
             return true;
           }
           // If container missing, do not consider init complete — allow retries until container appears
-          console.log('[Google init] renderButton skipped, container missing — will retry');
+          
           return false;
         } catch (e) {
           console.warn('Google Identity init failed', e);

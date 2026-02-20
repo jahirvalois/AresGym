@@ -67,8 +67,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
     return await response.json();
   } catch (err) {
-    console.warn(`Ares Cloud: Fallback a local para ${path}`);
-    throw err; // Propagar para que el llamador decida si usar local
+    // fallback to local data when remote fails - keep quiet in console
+    console.debug && console.debug(`Ares Cloud fallback for ${path}:`, err?.message || err);
+    throw err; // caller will decide to use local
   }
 }
 
@@ -96,7 +97,7 @@ export const apiService = {
       });
       if (filtered.length !== users.length) {
         saveLocal('users', filtered);
-        console.log('[apiService] removed local social users from localStorage');
+        console.debug && console.debug('[apiService] removed local social users from localStorage');
       }
     } catch (e) {
       console.warn('[apiService] migration check failed', e);
@@ -377,7 +378,7 @@ export const apiService = {
     try {
       return await this.post('/auth/social-login', payload);
     } catch (err) {
-      console.warn('[apiService] socialLogin failed:', err);
+      console.debug && console.debug('[apiService] socialLogin failed:', err);
       // Don't create localStorage users for social signups — require server persistence
       throw err;
     }

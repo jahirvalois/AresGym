@@ -36,3 +36,4 @@
 {"timestamp":"2026-02-19T01:52:00.283Z","userId":"ADMIN","action":"DELETE_USER","details":"{\"userId\":\"69964fdb50492fe87b1721da\"}","_id":"69966cc08ae397d1773bfa45"}
 {"timestamp":"2026-02-19T01:53:02.167Z","userId":"69937af37ee520b4c819f095","action":"CREATE_USER","details":"{\"userId\":\"69966cf98ae397d1773bfa46\",\"email\":\"jared_valois@outlook.com\",\"name\":\"JARED VALOIS\",\"inviteSent\":true}","_id":"69966cfe8ae397d1773bfa47"}
 {"timestamp":"2026-02-19T01:53:37.347Z","userId":"69937af37ee520b4c819f095","action":"CREATE_USER","details":"{\"userId\":\"69966d1f8ae397d1773bfa48\",\"email\":\"jaredabisaivaloisc@gmail.com\",\"name\":\"JARED\",\"inviteSent\":true}","_id":"69966d218ae397d1773bfa49"}
+{"timestamp":"2026-02-20T23:20:24.982Z","userId":"SYSTEM","action":"SOCIAL_LOGIN_EXISTING","details":"{\"email\":\"jahirvalois@gmail.com\",\"provider\":\"google\",\"providerId\":\"106206629907124038052\"}","_id":"6998ec38f2afdc78b75b8bb3"}

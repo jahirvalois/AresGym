@@ -26,6 +26,10 @@ export interface User {
   profilePicture?: string; // Base64 string
   password?: string;
   isFirstLogin: boolean;
+  // Optional provider/origin fields for social logins
+  provider?: string;
+  providerId?: string;
+  origin?: 'manual' | 'google' | 'microsoft';
 }
 
 export interface Exercise {

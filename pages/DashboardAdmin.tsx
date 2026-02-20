@@ -303,6 +303,11 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                     {sortConfig?.key === 'role' && (<span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
+                <th className="p-8 cursor-pointer hover:text-primary transition-colors select-none">
+                  <div className="flex items-center space-x-2">
+                    <span>Origen</span>
+                  </div>
+                </th>
                 <th className="p-8 cursor-pointer hover:text-primary transition-colors select-none" onClick={() => handleSort('status')}>
                   <div className="flex items-center space-x-2">
                     <span>Estatus</span>
@@ -323,6 +328,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                 <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                   <td className="p-8"><p className="font-black uppercase italic text-slate-900">{u.name}</p><p className="text-[10px] text-slate-400">{u.email}</p></td>
                   <td className="p-8 font-black text-xs uppercase text-primary">{u.role}</td>
+                  <td className="p-8 font-black text-xs uppercase">{(u.origin || u.provider || 'manual').toString().toUpperCase()}</td>
                   <td className="p-8">
                     {u.isFirstLogin ? (
                       <span className="text-[9px] font-black uppercase px-3 py-1 rounded-lg bg-amber-100 text-amber-700">INVITACION ENVIADA</span>

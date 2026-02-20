@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 import { User, UserRole, Exercise } from '../types';
 import Popup from '../components/Popup';
+import SearchableSelect from '../components/SearchableSelect';
 
 const DAYS_OF_WEEK = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -153,11 +154,16 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
       <div className="space-y-8 animate-in fade-in">
         <header className="flex flex-col md:flex-row justify-between items-center gap-6">
           <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900">Forjar <span className="text-primary">Arsenal</span></h2>
-          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <select className="bg-white border-2 p-4 rounded-2xl font-black uppercase italic text-xs shadow-sm outline-none" value={selectedUser} onChange={e => setSelectedUser(e.target.value)}>
-              <option value="">Selecciona Guerrero</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center">
+            <div className="w-full md:w-auto">
+              <SearchableSelect
+                options={users.map(u => ({ value: u.id, label: u.name }))}
+                value={selectedUser || null}
+                onChange={(v) => setSelectedUser(v || '')}
+                placeholder="Selecciona Guerrero"
+                className="w-full md:w-80"
+              />
+            </div>
             <button onClick={handleCreateRoutine} disabled={!selectedUser} className="bg-black text-primary px-10 py-4 rounded-2xl font-black uppercase italic text-sm hover:scale-105 transition-all shadow-xl active:scale-95 disabled:opacity-30">Publicar</button>
           </div>
         </header>

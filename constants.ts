@@ -2,7 +2,7 @@
 import { BrandingSettings, UserRole, UserStatus, User } from './types';
 
 export const DEFAULT_BRANDING: BrandingSettings = {
-  logo: 'https://game-icons.net/icons/000000/ffffff/1x1/delapouite/spartan-helmet.png',
+  logo: '/images/spartan-helmet.png',
   gymName: 'Ares GYM',
   primaryColor: '#eab308', // yellow-600 (Oro)
   secondaryColor: '#000000', // Negro

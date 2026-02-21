@@ -1,8 +1,11 @@
 
 import { BrandingSettings, UserRole, UserStatus, User } from './types';
 
+// Resolve image via import.meta.url so Vite includes it in production builds
+const LOGO_URL = new URL('./images/spartan-helmet.png', import.meta.url).href;
+
 export const DEFAULT_BRANDING: BrandingSettings = {
-  logo: '/images/spartan-helmet.png',
+  logo: LOGO_URL,
   gymName: 'Ares GYM',
   primaryColor: '#eab308', // yellow-600 (Oro)
   secondaryColor: '#000000', // Negro

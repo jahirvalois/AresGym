@@ -77,14 +77,15 @@ export const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, active
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
       {/* Mobile Header */}
-      <header className="md:hidden bg-secondary text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-[100]">
+      <header className="md:hidden bg-secondary text-white p-3 flex justify-between items-center shadow-lg sticky top-0 z-[100]">
         <div className="flex items-center space-x-2">
-          <img src={settings.logo} alt="Logo" className="w-8 h-8 rounded bg-primary p-0.5" />
-          <h1 className="font-black text-lg tracking-tighter uppercase italic">{settings.gymName}</h1>
+          <img src={settings.logo} alt="Logo" className="w-7 h-7 rounded bg-primary p-0.5" />
+          <h1 className="font-black text-base tracking-tighter uppercase italic">{settings.gymName}</h1>
         </div>
         <button 
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 bg-slate-800 rounded-lg text-primary"
+          className="p-3 bg-slate-800 rounded-lg text-primary touch-manipulation"
+          aria-expanded={isMobileMenuOpen}
         >
           {isMobileMenuOpen ? (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -126,7 +127,7 @@ export const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, active
               title={item.label}
               aria-label={item.label}
               className={`transition-all duration-200 uppercase text-[10px] font-black tracking-[0.2em] ${
-                isDesktopCollapsed ? 'flex items-center justify-center py-3 w-full' : 'w-full text-left px-4 py-3'
+                isDesktopCollapsed ? 'flex items-center justify-center py-4 w-full' : 'w-full text-left px-4 py-4 md:py-3'
               } ${activeTab === item.id ? 'sidebar-active shadow-lg transform translate-x-1' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
             >
               {isDesktopCollapsed ? renderIcon(item.id) : <span>{item.label}</span>}

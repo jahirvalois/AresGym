@@ -293,19 +293,19 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
         )}
         <header className="flex flex-col md:flex-row justify-between items-center gap-4">
           <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900">Legión de <span className="text-primary">Guerreros</span></h2>
-          <input type="text" placeholder="Buscar..." className="w-full md:w-80 bg-white border-2 p-4 rounded-2xl outline-none focus:border-primary font-bold text-xs uppercase" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+          <input type="text" placeholder="Buscar..." className="w-full md:w-80 bg-white border-2 p-3 rounded-2xl outline-none focus:border-primary font-bold text-xs uppercase placeholder-slate-400 placeholder:italic placeholder:text-xs" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
         </header>
         <section className="bg-white p-8 rounded-[3rem] shadow-xl border-2">
           <form onSubmit={handleCreateUser} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <input type="text" placeholder="Nombre" className="bg-slate-50 p-4 rounded-xl font-bold" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} required />
-            <input type="email" placeholder="Email" className="bg-slate-50 p-4 rounded-xl font-bold" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} required />
-            <select className="bg-slate-50 p-4 rounded-xl font-bold uppercase" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as UserRole})}>
+            <input type="text" placeholder="Nombre" className="bg-slate-50 p-3 rounded-xl font-bold placeholder-slate-400 placeholder:italic" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} required />
+            <input type="email" placeholder="Email" className="bg-slate-50 p-3 rounded-xl font-bold placeholder-slate-400 placeholder:italic" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} required />
+            <select className="bg-slate-50 px-4 py-3 rounded-xl font-bold uppercase" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as UserRole})}>
               <option value={UserRole.USER}>Guerrero</option>
               <option value={UserRole.COACH}>Mentor</option>
               <option value={UserRole.ADMIN}>Rey</option>
             </select>
-            <input type="date" className="bg-slate-50 p-4 rounded-xl font-bold" value={newUser.subEnd} onChange={e => setNewUser({...newUser, subEnd: e.target.value})} disabled={newUser.role !== UserRole.USER} />
-            <button className="bg-primary text-black border-2 border-primary font-black uppercase italic p-4 rounded-xl shadow-lg hover:bg-black hover:text-yellow-400 hover:border-yellow-400 transition-all">Reclutar</button>
+            <input type="date" className="bg-slate-50 p-3 rounded-xl font-bold" value={newUser.subEnd} onChange={e => setNewUser({...newUser, subEnd: e.target.value})} disabled={newUser.role !== UserRole.USER} />
+            <button className="bg-primary text-black border-2 border-primary font-black uppercase italic px-6 py-3 rounded-xl shadow-lg hover:bg-black hover:text-yellow-400 hover:border-yellow-400 transition-all">Reclutar</button>
           </form>
         </section>
         <div className="bg-white rounded-xl shadow-xl border overflow-hidden">
@@ -401,29 +401,29 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
             <div className="bg-white w-full max-w-md rounded-[3rem] p-10 space-y-6">
               <h3 className="text-2xl font-black uppercase italic tracking-tighter">Ajustar Perfil</h3>
               <div className="space-y-4">
-                <input type="text" className="w-full bg-slate-50 p-4 rounded-xl font-bold" value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})} />
-                <input type="email" disabled className="w-full bg-slate-100 p-4 rounded-xl font-bold cursor-not-allowed" value={editingUser.email} />
-                <select className="w-full bg-slate-50 p-4 rounded-xl font-bold uppercase" value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as UserRole})}>
+                <input type="text" className="w-full bg-slate-50 p-3 rounded-xl font-bold placeholder-slate-400 placeholder:italic" value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})} />
+                <input type="email" disabled className="w-full bg-slate-100 p-3 rounded-xl font-bold cursor-not-allowed placeholder-slate-400 placeholder:italic" value={editingUser.email} />
+                <select className="w-full bg-slate-50 p-3 rounded-xl font-bold uppercase" value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as UserRole})}>
                   <option value={UserRole.USER}>Guerrero</option>
                   <option value={UserRole.COACH}>Mentor</option>
                   <option value={UserRole.ADMIN}>Rey</option>
                 </select>
-                <select className="w-full bg-slate-50 p-4 rounded-xl font-bold uppercase" value={editingUser.status} onChange={e => setEditingUser({...editingUser, status: e.target.value as UserStatus})}>
+                <select className="w-full bg-slate-50 p-3 rounded-xl font-bold uppercase" value={editingUser.status} onChange={e => setEditingUser({...editingUser, status: e.target.value as UserStatus})}>
                   <option value={UserStatus.ACTIVE}>ACTIVE</option>
                   <option value={UserStatus.INACTIVE}>INACTIVE</option>
                 </select>
                 {editingUser.role === UserRole.USER && (
                   <input
                     type="date"
-                    className="w-full bg-slate-50 p-4 rounded-xl font-bold"
+                    className="w-full bg-slate-50 p-3 rounded-xl font-bold"
                     value={editingUser.subscriptionEndDate ? editingUser.subscriptionEndDate.split('T')[0] : ''}
                     onChange={e => setEditingUser({...editingUser, subscriptionEndDate: e.target.value ? new Date(e.target.value).toISOString() : ''})}
                   />
                 )}
               </div>
               <div className="flex gap-4">
-                <button onClick={() => setEditingUser(null)} className="flex-1 py-4 uppercase text-slate-400 font-black">Cerrar</button>
-                <button onClick={handleUpdateUser} className="flex-1 bg-black text-primary py-4 rounded-xl font-black uppercase">Guardar</button>
+                <button onClick={() => setEditingUser(null)} className="flex-1 py-3 uppercase text-slate-400 font-black">Cerrar</button>
+                <button onClick={handleUpdateUser} className="flex-1 bg-black text-primary py-3 rounded-xl font-black uppercase">Guardar</button>
               </div>
             </div>
           </div>
@@ -433,9 +433,9 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
             <div className="bg-white w-full max-w-md rounded-[3rem] p-10 space-y-6">
               <h3 className="text-2xl font-black uppercase italic tracking-tighter">Confirmar Destierro</h3>
               <p className="text-slate-600 font-bold text-sm">¿Borrar a <span className="font-black">{pendingDelete.name}</span>?</p>
-              <div className="flex gap-4">
-                <button onClick={() => setPendingDelete(null)} className="flex-1 py-4 uppercase text-slate-400 font-black">Cancelar</button>
-                <button onClick={confirmDeleteUser} className="flex-1 bg-red-600 text-white py-4 rounded-xl font-black uppercase">Borrar</button>
+                <div className="flex gap-4">
+                <button onClick={() => setPendingDelete(null)} className="flex-1 py-3 uppercase text-slate-400 font-black">Cancelar</button>
+                <button onClick={confirmDeleteUser} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-black uppercase">Borrar</button>
               </div>
             </div>
           </div>
@@ -449,10 +449,10 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
       <div className="space-y-8 animate-in fade-in">
         <header className="flex flex-col md:flex-row justify-between items-center gap-4">
           <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900">Arsenal & <span className="text-primary">Animaciones</span></h2>
-          <form onSubmit={handleAddCategory} className="flex gap-2 w-full md:w-auto">
-             <input type="text" placeholder="Nuevo Músculo..." className="flex-1 md:w-64 bg-white border-2 p-4 rounded-2xl outline-none focus:border-primary font-bold text-xs uppercase" value={newCatName} onChange={e => setNewCatName(e.target.value)} />
-             <button type="submit" className="bg-black text-primary px-6 rounded-2xl font-black uppercase italic shadow-lg hover:bg-primary hover:text-black transition-all">Añadir</button>
-          </form>
+           <form onSubmit={handleAddCategory} className="flex gap-2 w-full md:w-auto">
+             <input type="text" placeholder="Nuevo Músculo..." className="flex-1 md:w-64 bg-white border-2 p-3 rounded-2xl outline-none focus:border-primary font-bold text-xs uppercase placeholder-slate-400 placeholder:italic" value={newCatName} onChange={e => setNewCatName(e.target.value)} />
+             <button type="submit" className="bg-black text-primary px-6 py-3 rounded-2xl font-black uppercase italic shadow-lg hover:bg-primary hover:text-black transition-all">Añadir</button>
+           </form>
         </header>
 
         <div className="flex flex-col lg:flex-row gap-8">
@@ -480,8 +480,8 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                      <h3 className="text-3xl font-black uppercase italic text-slate-900 tracking-tighter">{selectedArsenalCategory}</h3>
                    </div>
                    <form onSubmit={handleAddExercise} className="flex gap-3 w-full sm:w-auto">
-                     <input type="text" placeholder="Nueva misión..." className="flex-1 sm:w-64 bg-slate-50 p-4 rounded-xl text-xs font-black uppercase italic outline-none border-2 focus:border-primary" value={newExName} onChange={e => setNewExName(e.target.value)} />
-                     <button className="bg-primary text-black px-8 py-4 rounded-xl font-black uppercase italic text-xs shadow-lg hover:bg-black hover:text-primary transition-all">Crear</button>
+                     <input type="text" placeholder="Nueva misión..." className="flex-1 sm:w-64 bg-slate-50 p-3 rounded-xl text-xs font-black uppercase italic outline-none border-2 focus:border-primary placeholder-slate-400 placeholder:italic" value={newExName} onChange={e => setNewExName(e.target.value)} />
+                     <button className="bg-primary text-black px-6 py-3 rounded-xl font-black uppercase italic text-xs shadow-lg hover:bg-black hover:text-primary transition-all">Crear</button>
                    </form>
                 </div>
 
@@ -515,8 +515,8 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                               </div>
                             </div>
                             <div className="flex gap-2">
-                              <input type="text" placeholder="URL GIF/Video..." className="flex-1 bg-white border p-3 rounded-xl text-[10px] font-black uppercase outline-none focus:border-primary" value={mediaMap[ex] || ''} onChange={e => handleUpdateMedia(ex, e.target.value)} />
-                              <button onClick={() => setPreviewUrl(mediaMap[ex] || 'https://media.giphy.com/media/l0HlS9j1R2z8G3H5e/giphy.gif')} className="bg-black text-primary p-3 rounded-xl shadow-lg"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /></svg></button>
+                              <input type="text" placeholder="URL GIF/Video..." className="flex-1 bg-white border p-3 rounded-xl text-[10px] font-black uppercase outline-none focus:border-primary placeholder-slate-400 placeholder:italic" value={mediaMap[ex] || ''} onChange={e => handleUpdateMedia(ex, e.target.value)} />
+                              <button onClick={() => setPreviewUrl(mediaMap[ex] || 'https://media.giphy.com/media/l0HlS9j1R2z8G3H5e/giphy.gif')} className="bg-black text-primary px-3 py-2 rounded-xl shadow-lg"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /></svg></button>
                             </div>
                           </div>
                         ))}
@@ -553,10 +553,10 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
           <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[250] animate-in zoom-in">
             <div className="bg-white w-full max-w-md rounded-[3rem] p-10 space-y-6">
                <h3 className="text-2xl font-black uppercase italic tracking-tighter">Renombrar Misión</h3>
-               <input type="text" className="w-full bg-slate-50 p-5 rounded-xl font-black uppercase italic border-2 border-primary outline-none" value={editingEx.new} onChange={e => setEditingEx({...editingEx, new: e.target.value})} autoFocus />
+               <input type="text" className="w-full bg-slate-50 p-4 rounded-xl font-black uppercase italic border-2 border-primary outline-none" value={editingEx.new} onChange={e => setEditingEx({...editingEx, new: e.target.value})} autoFocus />
                <div className="flex gap-4">
-                 <button onClick={() => setEditingEx(null)} className="flex-1 py-4 uppercase text-slate-400 font-black">Cancelar</button>
-                 <button onClick={handleRenameExercise} className="flex-1 bg-black text-primary py-4 rounded-xl font-black uppercase italic shadow-lg">Guardar</button>
+                 <button onClick={() => setEditingEx(null)} className="flex-1 py-3 uppercase text-slate-400 font-black">Cancelar</button>
+                 <button onClick={handleRenameExercise} className="flex-1 bg-black text-primary py-3 rounded-xl font-black uppercase italic shadow-lg">Guardar</button>
                </div>
             </div>
           </div>
@@ -566,9 +566,9 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
             <div className="bg-white w-full max-w-md rounded-[3rem] p-10 space-y-6">
               <h3 className="text-2xl font-black uppercase italic tracking-tighter">Confirmar Borrado</h3>
               <p className="text-slate-600 font-bold text-sm">¿Quitar la misión <span className="font-black">{pendingDeleteExercise.exercise}</span> de <span className="font-black">{pendingDeleteExercise.category.replace('RUTINA DE ','')}</span>?</p>
-              <div className="flex gap-4">
-                <button onClick={() => setPendingDeleteExercise(null)} className="flex-1 py-4 uppercase text-slate-400 font-black">Cancelar</button>
-                <button onClick={confirmDeleteExercise} className="flex-1 bg-red-600 text-white py-4 rounded-xl font-black uppercase">Borrar</button>
+                <div className="flex gap-4">
+                <button onClick={() => setPendingDeleteExercise(null)} className="flex-1 py-3 uppercase text-slate-400 font-black">Cancelar</button>
+                <button onClick={confirmDeleteExercise} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-black uppercase">Borrar</button>
               </div>
             </div>
           </div>
@@ -577,10 +577,10 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
           <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[250] animate-in zoom-in">
             <div className="bg-white w-full max-w-md rounded-[3rem] p-10 space-y-6">
                <h3 className="text-2xl font-black uppercase italic tracking-tighter">Ajustar Músculo</h3>
-               <input type="text" className="w-full bg-slate-50 p-5 rounded-xl font-black uppercase italic border-2 border-primary outline-none" value={editingCat.new} onChange={e => setEditingCat({...editingCat, new: e.target.value})} autoFocus />
+               <input type="text" className="w-full bg-slate-50 p-4 rounded-xl font-black uppercase italic border-2 border-primary outline-none" value={editingCat.new} onChange={e => setEditingCat({...editingCat, new: e.target.value})} autoFocus />
                <div className="flex gap-4">
-                 <button onClick={() => setEditingCat(null)} className="flex-1 py-4 uppercase text-slate-400 font-black">Cancelar</button>
-                 <button onClick={handleRenameCategory} className="flex-1 bg-black text-primary py-4 rounded-xl font-black uppercase italic shadow-lg">Guardar</button>
+                 <button onClick={() => setEditingCat(null)} className="flex-1 py-3 uppercase text-slate-400 font-black">Cancelar</button>
+                 <button onClick={handleRenameCategory} className="flex-1 bg-black text-primary py-3 rounded-xl font-black uppercase italic shadow-lg">Guardar</button>
                </div>
             </div>
           </div>
@@ -588,7 +588,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
         {previewUrl && (
           <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[250] animate-in zoom-in">
             <div className="bg-white w-full max-w-lg rounded-[4rem] p-12 space-y-6 relative border">
-              <button onClick={() => setPreviewUrl(null)} className="absolute top-8 right-8 w-12 h-12 bg-slate-100 hover:bg-red-500 hover:text-white rounded-2xl font-black transition-all flex items-center justify-center text-xl shadow-lg">✕</button>
+              <button onClick={() => setPreviewUrl(null)} className="absolute top-8 right-8 w-10 h-10 bg-slate-100 hover:bg-red-500 hover:text-white rounded-2xl font-black transition-all flex items-center justify-center text-lg shadow-lg">✕</button>
               <h3 className="text-3xl font-black uppercase italic">Vista Táctica</h3>
               <div className="aspect-video bg-black rounded-[2.5rem] overflow-hidden shadow-2xl"><img src={previewUrl} className="w-full h-full object-cover" alt="Preview" /></div>
             </div>
@@ -599,9 +599,9 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
             <div className="bg-white w-full max-w-md rounded-[3rem] p-10 space-y-6">
               <h3 className="text-2xl font-black uppercase italic tracking-tighter">Confirmar Borrado</h3>
               <p className="text-slate-600 font-bold text-sm">¿Borrar la categoría <span className="font-black">{pendingDeleteCategory.replace("RUTINA DE ", "")}</span> y todo su arsenal?</p>
-              <div className="flex gap-4">
-                <button onClick={() => setPendingDeleteCategory(null)} className="flex-1 py-4 uppercase text-slate-400 font-black">Cancelar</button>
-                <button onClick={confirmDeleteCategory} className="flex-1 bg-red-600 text-white py-4 rounded-xl font-black uppercase">Borrar</button>
+                <div className="flex gap-4">
+                <button onClick={() => setPendingDeleteCategory(null)} className="flex-1 py-3 uppercase text-slate-400 font-black">Cancelar</button>
+                <button onClick={confirmDeleteCategory} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-black uppercase">Borrar</button>
               </div>
             </div>
           </div>

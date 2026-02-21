@@ -154,7 +154,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   return (
     <div className="space-y-8 pb-20">
       {subState.state === SubscriptionState.WARNING && !isAlertDismissed && (
-        <div className="bg-amber-400 border-4 border-black p-6 rounded-[2.5rem] shadow-xl flex items-center animate-bounce z-50 group/alert">
+        <div className="bg-amber-400 border-4 border-black p-6 rounded-[1rem] shadow-xl flex items-center animate-bounce z-50 group/alert">
            <div className="bg-black rounded-full p-3 mr-5 shadow-lg">
               <svg className="w-8 h-8 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
            </div>
@@ -200,7 +200,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
             <button 
               key={day} 
               onClick={() => setSelectedDay(day)} 
-              className={`flex-shrink-0 px-10 py-5 rounded-[1.8rem] font-black uppercase italic text-[11px] tracking-widest transition-all shadow-sm ${selectedDay === day ? 'bg-black text-primary scale-110 shadow-2xl' : 'bg-white text-slate-400 hover:bg-slate-50 border'}`}
+              className={`flex-shrink-0 px-8 py-4 rounded-[1rem] font-black uppercase italic text-[11px] tracking-widest transition-all shadow-sm ${selectedDay === day ? 'bg-black text-primary scale-110 shadow-2xl' : 'bg-white text-slate-400 hover:bg-slate-50 border'}`}
             >
               {day}
             </button>
@@ -209,7 +209,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       </header>
 
       {!routine ? (
-        <div className="bg-white p-24 rounded-[4rem] text-center border-4 border-dashed border-slate-100 opacity-50 space-y-6">
+        <div className="bg-white p-24 rounded-[1rem] text-center border-4 border-dashed border-slate-100 opacity-50 space-y-6">
           <img src="https://game-icons.net/icons/000000/ffffff/1x1/delapouite/spartan-helmet.png" className="w-20 h-20 mx-auto invert opacity-10" />
           <p className="font-black uppercase italic tracking-[0.2em] text-slate-400 text-lg">Arsenal no forjado aún. Contacta a tu Mentor.</p>
         </div>
@@ -227,7 +227,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                 <div 
                   key={ex.id} 
                   onClick={() => setActiveExercise(ex)} 
-                  className={`p-10 rounded-[3.5rem] border-2 transition-all cursor-pointer relative overflow-hidden group shadow-md ${completed ? 'bg-green-500/10 border-green-500/20 opacity-60 grayscale-[0.5]' : 'bg-white border-slate-50 hover:border-primary hover:translate-y-[-6px] hover:shadow-2xl'}`}
+                  className={`p-6 rounded-[1rem] border-2 transition-all cursor-pointer relative overflow-hidden group shadow-md ${completed ? 'bg-green-500/10 border-green-500/20 opacity-60 grayscale-[0.5]' : 'bg-white border-slate-50 hover:border-primary hover:translate-y-[-6px] hover:shadow-2xl'}`}
                 >
                   <div className="flex justify-between items-center relative z-10">
                     <div className="flex-1 pr-4">
@@ -257,16 +257,16 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       )}
 
       {activeExercise && (
-        <div className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 z-[250] animate-in fade-in">
-          <div className="bg-white w-full max-w-lg rounded-[4rem] p-12 space-y-8 relative overflow-hidden shadow-[0_0_100px_rgba(234,179,8,0.2)] border border-white/20">
-            <button onClick={() => setActiveExercise(null)} className="absolute top-8 right-8 w-12 h-12 bg-slate-100 hover:bg-red-500 hover:text-white rounded-2xl font-black transition-all flex items-center justify-center text-xl shadow-lg z-50">✕</button>
+            <div className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 z-[250] animate-in fade-in">
+          <div className="bg-white w-full max-w-lg rounded-[1rem] p-8 space-y-8 relative overflow-hidden shadow-[0_0_100px_rgba(234,179,8,0.2)] border border-white/20">
+            <button onClick={() => setActiveExercise(null)} className="absolute top-8 right-8 w-10 h-10 bg-slate-100 hover:bg-red-500 hover:text-white rounded-2xl font-black transition-all flex items-center justify-center text-lg shadow-lg z-50">✕</button>
             
             <div className="space-y-2">
                <p className="text-primary font-black uppercase text-[10px] tracking-[0.4em] italic leading-none">Análisis de Combate</p>
                <h3 className="text-4xl font-black uppercase italic tracking-tighter leading-tight pr-12 text-slate-900">{activeExercise.name}</h3>
             </div>
 
-            <div className="aspect-video bg-black rounded-[3rem] overflow-hidden shadow-2xl relative group flex items-center justify-center">
+            <div className="aspect-video bg-black rounded-[1rem] overflow-hidden shadow-2xl relative group flex items-center justify-center">
               {mediaLoading && !mediaError && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 bg-slate-900 z-10">
                    <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
@@ -293,20 +293,20 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
             )}
 
             <div className="grid grid-cols-2 gap-6">
-              <div className="bg-slate-50 p-8 rounded-[2.5rem] text-center border border-slate-100 shadow-inner">
+              <div className="bg-slate-50 p-8 rounded-[2rem] text-center border border-slate-100 shadow-inner">
                 <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Series</p>
                 <p className="text-4xl font-black italic text-slate-900">{activeExercise.series}</p>
               </div>
-              <div className="bg-slate-50 p-8 rounded-[2.5rem] text-center border border-slate-100 shadow-inner">
+              <div className="bg-slate-50 p-8 rounded-[2rem] text-center border border-slate-100 shadow-inner">
                 <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Misión</p>
                 <p className="text-4xl font-black italic text-slate-900">{activeExercise.reps}</p>
               </div>
             </div>
 
             {isExerciseCompletedThisWeek(activeExercise.id) ? (
-              <div className="w-full bg-green-500 text-white py-7 rounded-[2.5rem] font-black uppercase italic text-center text-2xl shadow-xl animate-pulse">OBJETIVO CONQUISTADO</div>
+              <div className="w-full bg-green-500 text-white py-4 rounded-[1rem] font-black uppercase italic text-center text-2xl shadow-xl animate-pulse">OBJETIVO CONQUISTADO</div>
             ) : (
-              <button onClick={handleLogWorkout} className="w-full bg-black text-primary py-7 rounded-[2.5rem] font-black uppercase italic tracking-tighter text-2xl active:scale-95 transition-all shadow-[0_15px_40px_rgba(0,0,0,0.3)] hover:bg-primary hover:text-black">Confirmar Conquista</button>
+              <button onClick={handleLogWorkout} className="w-full bg-black text-primary py-4 rounded-[1rem] font-black uppercase italic tracking-tighter text-2xl active:scale-95 transition-all shadow-[0_15px_40px_rgba(0,0,0,0.3)] hover:bg-primary hover:text-black">Confirmar Conquista</button>
             )}
           </div>
         </div>

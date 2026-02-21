@@ -259,7 +259,7 @@ const App: React.FC = () => {
 
   if (!dbReady) return <div className="min-h-screen bg-black flex items-center justify-center font-black text-primary italic text-2xl uppercase tracking-tighter">Iniciando Servidores...</div>;
 
-  const loginButtonClasses = "w-full bg-black text-primary py-5 rounded-[1.5rem] font-black text-lg shadow-xl border-2 border-black hover:bg-yellow-500 hover:text-black hover:border-black transition-all uppercase italic";
+  const loginButtonClasses = "w-full bg-black text-primary py-5 rounded-[1rem] font-black text-lg shadow-xl border-2 border-black hover:bg-yellow-500 hover:text-black hover:border-black transition-all uppercase italic";
 
   if (!user) {
     const isBlocking = error?.isBlocking;
@@ -269,7 +269,7 @@ const App: React.FC = () => {
           className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center"
           style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${settings.loginBgUrl})` }}
         >
-          <div className="max-w-md w-full bg-white rounded-[3rem] shadow-2xl p-8 sm:p-12 space-y-8 animate-in fade-in zoom-in border border-white/20 backdrop-blur-sm relative">
+          <div className="max-w-md w-full bg-white rounded-[1rem] shadow-2xl p-8 sm:p-12 space-y-8 animate-in fade-in zoom-in border border-white/20 backdrop-blur-sm relative">
             <div className="text-center space-y-4">
               <div className="w-20 h-20 bg-primary mx-auto rounded-3xl flex items-center justify-center shadow-lg">
                 <img src={settings.logo} alt="Logo" className="w-12 h-12" />

@@ -133,11 +133,11 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
       <div className="space-y-8 animate-in fade-in">
         <header className="flex flex-col md:flex-row justify-between items-center gap-4">
           <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900">Tropas en <span className="text-primary">Combate</span></h2>
-          <input type="text" placeholder="Buscar a un guerrero..." className="w-full md:w-80 bg-white border-2 p-4 rounded-2xl outline-none focus:border-primary font-bold text-xs uppercase" value={searchUserQuery} onChange={e => setSearchUserQuery(e.target.value)} />
+          <input type="text" placeholder="Buscar a un guerrero..." className="w-full md:w-80 bg-white border-2 p-3 rounded-2xl outline-none focus:border-primary font-bold text-xs uppercase placeholder-slate-400 placeholder:italic" value={searchUserQuery} onChange={e => setSearchUserQuery(e.target.value)} />
         </header>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {users.filter(u => u.name.toLowerCase().includes(searchUserQuery.toLowerCase())).map(u => (
-            <div key={u.id} className="bg-white p-10 rounded-[3rem] shadow-sm border hover:border-primary transition-all group overflow-hidden">
+            <div key={u.id} className="bg-white p-10 rounded-[2.5rem] shadow-sm border hover:border-primary transition-all group overflow-hidden">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-16 h-16 rounded-full bg-slate-100 border-2 border-primary overflow-hidden flex items-center justify-center font-black text-slate-400">
                   {u.profilePicture ? <img src={u.profilePicture} className="w-full h-full object-cover" /> : u.name.charAt(0)}
@@ -147,7 +147,7 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
                    <p className={`text-[9px] font-black uppercase mt-1 ${u.status === 'ACTIVE' ? 'text-green-500' : 'text-red-500'}`}>{u.status}</p>
                 </div>
               </div>
-              <button onClick={() => onSelectUserForRoutine?.(u.id)} className="w-full bg-black text-primary py-4 rounded-xl text-[10px] font-black uppercase italic hover:bg-primary hover:text-black shadow-lg">Forjar Arsenal</button>
+              <button onClick={() => onSelectUserForRoutine?.(u.id)} className="w-full bg-black text-primary py-3 rounded-xl text-[10px] font-black uppercase italic hover:bg-primary hover:text-black shadow-lg">Forjar Arsenal</button>
             </div>
           ))}
           {users.length === 0 && <div className="col-span-full py-20 text-center opacity-40 font-black uppercase tracking-widest italic">No hay guerreros reclutados.</div>}
@@ -171,7 +171,7 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
                 className="w-full md:w-80"
               />
             </div>
-            <button onClick={handleCreateRoutine} disabled={!selectedUser} className="bg-black text-primary px-10 py-4 rounded-2xl font-black uppercase italic text-sm hover:scale-105 transition-all shadow-xl active:scale-95 disabled:opacity-30">Publicar</button>
+            <button onClick={handleCreateRoutine} disabled={!selectedUser} className="bg-black text-primary px-6 py-3 rounded-2xl font-black uppercase italic text-sm hover:scale-105 transition-all shadow-xl active:scale-95 disabled:opacity-30">Publicar</button>
           </div>
         </header>
         {selectedUser && (
@@ -180,7 +180,7 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
               <div key={day} className="bg-white rounded-[3rem] shadow-sm border flex flex-col overflow-hidden">
                 <div className="p-5 bg-slate-900 flex justify-between items-center">
                   <h3 className="font-black uppercase italic text-primary text-sm tracking-widest">{day}</h3>
-                  <button onClick={() => { setActiveDayForExercise(day); setIsModalOpen(true); }} className="text-[9px] bg-white/10 text-white px-4 py-1.5 rounded-xl font-black uppercase hover:bg-primary hover:text-black transition-colors">Añadir</button>
+                  <button onClick={() => { setActiveDayForExercise(day); setIsModalOpen(true); }} className="text-[9px] bg-white/10 text-white px-4 py-2 rounded-xl font-black uppercase hover:bg-primary hover:text-black transition-colors">Añadir</button>
                 </div>
                 <div className="p-6 space-y-4 min-h-[150px] max-h-[500px] overflow-y-auto bg-slate-50/20">
                   {(weeklySplit[day] || []).map(ex => (
@@ -234,7 +234,7 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
                 </div>
                 <div className="flex-1 p-8 overflow-y-auto content-start no-scrollbar bg-slate-50/10">
                   <div className="mb-4 flex items-center justify-between gap-4">
-                    <input placeholder="Buscar ejercicio..." value={modalQuery} onChange={e => setModalQuery(e.target.value)} className="flex-1 bg-white p-3 rounded-2xl border-2 outline-none focus:border-primary text-xs font-black uppercase" />
+                    <input placeholder="Buscar ejercicio..." value={modalQuery} onChange={e => setModalQuery(e.target.value)} className="flex-1 bg-white p-3 rounded-2xl border-2 outline-none focus:border-primary text-xs font-black uppercase placeholder-slate-400 placeholder:italic" />
                     <div className="text-sm text-slate-600">{modalPageSize} por página</div>
                   </div>
 
@@ -249,7 +249,7 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
                       return (
                         <>
                           {items.map(ex => (
-                            <button key={ex} onClick={() => addExercise(ex)} className="p-4 bg-white border-2 rounded-2xl text-left hover:border-primary font-black text-[10px] uppercase italic transition-all shadow-sm active:scale-95 group">
+                            <button key={ex} onClick={() => addExercise(ex)} className="p-3 bg-white border-2 rounded-2xl text-left hover:border-primary font-black text-[10px] uppercase italic transition-all shadow-sm active:scale-95 group">
                               <span className="group-hover:text-primary">{ex}</span>
                             </button>
                           ))}

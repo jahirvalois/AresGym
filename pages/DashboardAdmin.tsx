@@ -384,9 +384,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 18l-6-6 6-6v12z"/></svg>
                 </button>
                 <div className="flex items-center space-x-1">
-                  {Array.from({ length: totalPages }).map((_, i) => (
-                    <button key={i} onClick={() => setPage(i + 1)} className={`px-2 py-1 rounded ${page === i + 1 ? 'bg-slate-900 text-white' : 'bg-white border'}`}>{i + 1}</button>
-                  ))}
+                  <span className="px-3 py-1 rounded bg-slate-900 text-white font-bold">{page}/{totalPages}</span>
                 </div>
                 <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label="Siguiente" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l6 6-6 6V6z"/></svg>
@@ -529,9 +527,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 18l-6-6 6-6v12z"/></svg>
                               </button>
                               <div className="flex items-center space-x-1">
-                                {Array.from({ length: totalPages }).map((_, i) => (
-                                  <button key={i} onClick={() => setArsenalPage(i + 1)} className={`px-2 py-1 rounded ${arsenalPage === i + 1 ? 'bg-slate-900 text-white' : 'bg-white border'}`}>{i + 1}</button>
-                                ))}
+                                <span className="px-3 py-1 rounded bg-slate-900 text-white font-bold">{arsenalPage}/{totalPages}</span>
                               </div>
                               <button onClick={() => setArsenalPage(p => Math.min(totalPages, p + 1))} disabled={arsenalPage === totalPages} aria-label="Siguiente" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
                                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l6 6-6 6V6z"/></svg>

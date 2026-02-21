@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/apiService';
 import { User, UserRole, UserStatus, AuditLog } from '../types';
 
@@ -28,10 +28,18 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<User | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadTargetExercise, setUploadTargetExercise] = useState<string | null>(null);
+  const MAX_UPLOAD_BYTES = 5242880; // client-side fallback limit
 
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
   const [auditSearch, setAuditSearch] = useState('');
   const [auditFilter, setAuditFilter] = useState('');
+
+  // Pagination for audit logs
+  const [auditPage, setAuditPage] = useState(1);
+  const auditPageSize = 6;
 
   // Pagination for users table (kept at top-level to satisfy Hooks rules)
   const [page, setPage] = useState(1);
@@ -82,6 +90,11 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     const interval = setInterval(refreshData, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // reset audit page when search/filter or logs change
+  useEffect(() => {
+    setAuditPage(1);
+  }, [auditSearch, auditFilter, auditLogs.length]);
 
   // Auto-dismiss notifications after 15 seconds maximum
   useEffect(() => {
@@ -283,6 +296,26 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     
     return (
       <div className="space-y-8 animate-in fade-in">
+        <input ref={el => fileInputRef.current = el} type="file" accept="image/*,video/*" className="hidden" onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (!f || !uploadTargetExercise) return;
+          setUploading(true);
+          try {
+            // Always use SAS: request an upload URL then PUT the file directly to Blob Storage
+            const sas = await apiService.requestUploadSas(f.name);
+            await fetch(sas.uploadUrl, { method: 'PUT', body: f, headers: { 'x-ms-blob-type': 'BlockBlob', 'Content-Type': f.type } });
+            await apiService.updateExerciseMedia(currentUser.id, uploadTargetExercise, sas.blobUrl);
+            setMediaMap(m => ({ ...m, [uploadTargetExercise]: sas.blobUrl }));
+            setNotification({ type: 'success', message: 'Archivo subido directamente a Blob Storage.' });
+          } catch (err:any) {
+            console.error('Upload failed', err);
+            setNotification({ type: 'error', message: err?.message || 'Error al subir archivo' });
+          } finally {
+            setUploading(false);
+            setUploadTargetExercise(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          }
+        }} />
         {notification && (
           <div className={`fixed top-6 right-6 z-[300] px-4 py-3 rounded-2xl shadow-xl border-2 font-black uppercase text-[10px] tracking-widest ${notification.type === 'success' ? 'bg-emerald-400 text-black border-black' : 'bg-red-600 text-white border-black'}`}>
             <div className="flex items-center gap-4">
@@ -292,7 +325,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
           </div>
         )}
         <header className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900">Legión de <span className="text-primary">Guerreros</span></h2>
+          <h2 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">Legión de <span className="text-primary">Guerreros</span></h2>
           <input type="text" placeholder="Buscar..." className="w-full md:w-80 bg-white border-2 p-3 rounded-2xl outline-none focus:border-primary font-bold text-xs uppercase placeholder-slate-400 placeholder:italic placeholder:text-xs" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
         </header>
         <section className="bg-white p-8 rounded-[3rem] shadow-xl border-2">
@@ -359,7 +392,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                   <td className="p-1 md:p-2 font-black text-[9px] uppercase">{(u.origin || u.provider || 'manual').toString().toUpperCase()}</td>
                   <td className="p-1 md:p-2">
                     {u.isFirstLogin ? (
-                      <span className="text-[8px] font-black uppercase px-2 py-1 rounded-lg bg-amber-100 text-amber-700">INVITACION ENVIADA</span>
+                      <span className="text-[8px] font-black uppercase px-2 py-1 rounded-lg bg-amber-100 text-amber-700">INV. ENVIADA</span>
                     ) : (
                       <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-lg ${u.status === UserStatus.ACTIVE ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{u.status}</span>
                     )}
@@ -445,8 +478,27 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
   if (activeTab === 'animations') {
     return (
       <div className="space-y-8 animate-in fade-in">
+        <input ref={el => fileInputRef.current = el} type="file" accept="image/*,video/*" className="hidden" onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (!f || !uploadTargetExercise) return;
+          setUploading(true);
+          try {
+            const sas = await apiService.requestUploadSas(f.name);
+            await fetch(sas.uploadUrl, { method: 'PUT', body: f, headers: { 'x-ms-blob-type': 'BlockBlob', 'Content-Type': f.type } });
+            await apiService.updateExerciseMedia(currentUser.id, uploadTargetExercise, sas.blobUrl);
+            setMediaMap(m => ({ ...m, [uploadTargetExercise]: sas.blobUrl }));
+            setNotification({ type: 'success', message: 'Archivo subido directamente a Blob Storage.' });
+          } catch (err:any) {
+            console.error('Upload failed', err);
+            setNotification({ type: 'error', message: err?.message || 'Error al subir archivo' });
+          } finally {
+            setUploading(false);
+            setUploadTargetExercise(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          }
+        }} />
         <header className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900">Arsenal & <span className="text-primary">Animaciones</span></h2>
+          <h2 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">Arsenal & <span className="text-primary">Animaciones</span></h2>
            <form onSubmit={handleAddCategory} className="flex gap-2 w-full md:w-auto">
              <input type="text" placeholder="Nuevo Músculo..." className="flex-1 md:w-64 bg-white border-2 p-3 rounded-2xl outline-none focus:border-primary font-bold text-xs uppercase placeholder-slate-400 placeholder:italic" value={newCatName} onChange={e => setNewCatName(e.target.value)} />
              <button type="submit" className="bg-black text-primary px-6 py-3 rounded-2xl font-black uppercase italic shadow-lg hover:bg-primary hover:text-black transition-all">Añadir</button>
@@ -454,16 +506,16 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
         </header>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          <div className="w-full lg:w-80 space-y-3">
+          <div className="w-full lg:w-60 space-y-2">
             <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2 italic">Arsenal Disponible</h3>
-            {categories.map(cat => (
+                {categories.map(cat => (
               <div key={cat} className={`flex items-center group rounded-[1.8rem] transition-all overflow-hidden ${selectedArsenalCategory === cat ? 'bg-black shadow-2xl' : 'bg-white border'}`}>
-                <button onClick={() => setSelectedArsenalCategory(cat)} className={`flex-1 text-left p-5 text-[11px] font-black uppercase italic tracking-tighter ${selectedArsenalCategory === cat ? 'text-primary' : 'text-slate-400'}`}>
-                  {cat.replace("RUTINA DE ", "")}
+                <button onClick={() => setSelectedArsenalCategory(cat)} className={`flex-1 min-w-0 text-left px-4 py-3 text-[11px] font-black uppercase italic tracking-tighter ${selectedArsenalCategory === cat ? 'text-primary' : 'text-slate-400'}`}>
+                  <span className="truncate">{cat.replace("RUTINA DE ", "")}</span>
                 </button>
                 <div className="flex px-2 space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => setEditingCat({old: cat, new: cat.replace("RUTINA DE ", "")})} className={`p-2 transition-colors ${selectedArsenalCategory === cat ? 'text-blue-300 hover:text-blue-100' : 'text-blue-400 hover:text-blue-600'}`}>✎</button>
-                  <button onClick={() => handleDeleteCategory(cat)} className={`p-2 transition-colors ${selectedArsenalCategory === cat ? 'text-red-400 hover:text-red-200' : 'text-red-500 hover:text-red-700'}`}>✕</button>
+                  <button onClick={() => setEditingCat({old: cat, new: cat.replace("RUTINA DE ", "")})} className={`p-2 transition-colors flex-shrink-0 ${selectedArsenalCategory === cat ? 'text-blue-300 hover:text-blue-100' : 'text-blue-400 hover:text-blue-600'}`}>✎</button>
+                  <button onClick={() => handleDeleteCategory(cat)} className={`p-2 transition-colors flex-shrink-0 ${selectedArsenalCategory === cat ? 'text-red-400 hover:text-red-200' : 'text-red-500 hover:text-red-700'}`}>✕</button>
                 </div>
               </div>
             ))}
@@ -475,7 +527,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                 <div className="flex flex-col sm:flex-row justify-between items-center mb-10 border-b border-slate-100 pb-8 gap-4">
                    <div>
                      <p className="text-primary font-black uppercase text-[9px] italic mb-1 tracking-widest">Panel de Arsenal</p>
-                     <h3 className="text-3xl font-black uppercase italic text-slate-900 tracking-tighter">{selectedArsenalCategory}</h3>
+                     <h3 className="text-2xl font-black uppercase italic text-slate-900 tracking-tighter">{selectedArsenalCategory}</h3>
                    </div>
                    <form onSubmit={handleAddExercise} className="flex gap-3 w-full sm:w-auto">
                      <input type="text" placeholder="Nueva misión..." className="flex-1 sm:w-64 bg-slate-50 p-3 rounded-xl text-xs font-black uppercase italic outline-none border-2 focus:border-primary placeholder-slate-400 placeholder:italic" value={newExName} onChange={e => setNewExName(e.target.value)} />
@@ -512,9 +564,10 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                                 <button onClick={() => handleDeleteExercise(ex)} className="text-red-500 font-black text-[9px] uppercase hover:underline">Borrar</button>
                               </div>
                             </div>
-                            <div className="flex gap-2">
-                              <input type="text" placeholder="URL GIF/Video..." className="flex-1 bg-white border p-3 rounded-xl text-[10px] font-black uppercase outline-none focus:border-primary placeholder-slate-400 placeholder:italic" value={mediaMap[ex] || ''} onChange={e => handleUpdateMedia(ex, e.target.value)} />
-                              <button onClick={() => setPreviewUrl(mediaMap[ex] || 'https://media.giphy.com/media/l0HlS9j1R2z8G3H5e/giphy.gif')} className="bg-black text-primary px-3 py-2 rounded-xl shadow-lg"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /></svg></button>
+                            <div className="flex gap-2 items-center">
+                              <input type="text" placeholder="URL GIF/Video..." className="flex-1 min-w-0 bg-white border p-2 md:p-3 rounded-xl text-[10px] font-black uppercase outline-none focus:border-primary placeholder-slate-400 placeholder:italic" value={mediaMap[ex] || ''} onChange={e => handleUpdateMedia(ex, e.target.value)} />
+                              <button onClick={() => setPreviewUrl(mediaMap[ex] || 'https://media.giphy.com/media/l0HlS9j1R2z8G3H5e/giphy.gif')} className="bg-black text-primary px-2 py-2 rounded-xl shadow-lg flex-shrink-0"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /></svg></button>
+                              <button onClick={() => { setUploadTargetExercise(ex); fileInputRef.current?.click(); }} className="bg-primary text-black px-3 py-2 rounded-xl font-black uppercase text-[9px] flex-shrink-0">Subir</button>
                             </div>
                           </div>
                         ))}
@@ -609,7 +662,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
   if (activeTab === 'audit') {
     return (
       <div className="space-y-8 animate-in fade-in">
-        <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900">Bitácora del <span className="text-primary">Olimpo</span></h2>
+        <h2 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">Bitácora del <span className="text-primary">Olimpo</span></h2>
         <div className="flex gap-3 items-center">
           <input placeholder="Buscar bitácora..." className="flex-1 bg-slate-50 p-3 rounded-xl border-2 outline-none" value={auditSearch} onChange={e => setAuditSearch(e.target.value)} />
           <select className="bg-slate-50 p-3 rounded-xl border-2" value={auditFilter} onChange={e => setAuditFilter(e.target.value)}>
@@ -618,29 +671,72 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
           </select>
         </div>
         <div className="bg-white rounded-[3rem] border shadow-sm overflow-hidden">
-          <table className="w-full text-left">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left table-fixed">
+              <colgroup>
+                <col style={{ width: '200px' }} />
+                <col style={{ width: '150px' }} />
+                <col style={{ width: '150px' }} />
+                <col />
+              </colgroup>
             <thead className="bg-slate-900 text-white text-[10px] uppercase">
               <tr><th className="p-8">Instante</th><th className="p-8">Autor</th><th className="p-8">Acción</th><th className="p-8">Detalles</th></tr>
             </thead>
             <tbody className="divide-y">
-              {auditLogs
-                .filter(log => {
+              {(() => {
+                const filtered = auditLogs.filter(log => {
                   if (auditFilter && log.action !== auditFilter) return false;
                   if (!auditSearch) return true;
                   const s = auditSearch.toLowerCase();
                   return log.action.toLowerCase().includes(s) || (log.details || '').toLowerCase().includes(s) || (users.find(u => u.id === log.userId)?.name || 'sistema').toLowerCase().includes(s);
-                })
-                .slice(0, 50)
-                .map(log => (
-                <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-8 font-mono text-[11px] text-slate-400">{new Date(log.timestamp).toLocaleString()}</td>
-                  <td className="p-8 font-black uppercase italic text-xs">{users.find(u => u.id === log.userId)?.name || 'SISTEMA'}</td>
-                  <td className="p-8"><span className="text-[9px] font-black uppercase px-2 py-1 bg-slate-100 rounded text-slate-600 border">{log.action}</span></td>
-                  <td className="p-8 font-bold text-xs text-slate-600 uppercase italic tracking-tighter">{log.details}</td>
-                </tr>
-              ))}
+                });
+
+                // Sort by timestamp desc (most recent first)
+                const sorted = [...filtered].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+                const total = sorted.length;
+                const totalPages = Math.max(1, Math.ceil(total / auditPageSize));
+                const pageItems = sorted.slice((auditPage - 1) * auditPageSize, auditPage * auditPageSize);
+
+                return (
+                  <>
+                    {pageItems.map(log => (
+                      <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-4 md:p-8 font-mono text-[11px] text-slate-400 align-top">{new Date(log.timestamp).toLocaleString()}</td>
+                        <td className="p-4 md:p-8 font-black uppercase italic text-xs align-top">{users.find(u => u.id === log.userId)?.name || 'SISTEMA'}</td>
+                        <td className="p-4 md:p-8 align-top"><span className="text-[9px] font-black uppercase px-2 py-1 bg-slate-100 rounded text-slate-600 border">{log.action}</span></td>
+                        <td className="p-4 md:p-8 font-bold text-xs text-slate-600 break-words whitespace-normal align-top">{log.details}</td>
+                      </tr>
+                    ))}
+
+                    {totalPages > 1 && (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-3 bg-gray-50">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="text-sm text-slate-600">Mostrando {Math.min((auditPage - 1) * auditPageSize + 1, total)} - {Math.min(auditPage * auditPageSize, total)} de {total} registros</div>
+                            <div className="flex items-center space-x-2">
+                              <button onClick={() => setAuditPage(p => Math.max(1, p - 1))} disabled={auditPage === 1} aria-label="Anterior" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 18l-6-6 6-6v12z"/></svg>
+                              </button>
+
+                              <div className="flex items-center space-x-1">
+                                <span className="px-3 py-1 rounded bg-slate-900 text-white font-bold">{auditPage}/{totalPages}</span>
+                              </div>
+
+                              <button onClick={() => setAuditPage(p => Math.min(totalPages, p + 1))} disabled={auditPage === totalPages} aria-label="Siguiente" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l6 6-6 6V6z"/></svg>
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })()}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     );

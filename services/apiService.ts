@@ -62,7 +62,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
     const contentType = response.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
-      throw new Error("NOT_JSON");
+      let txt = '';
+      try { txt = await response.text(); } catch (e) { txt = ''; }
+      const err: any = new Error(`NOT_JSON: ${txt ? (txt.length > 1000 ? txt.slice(0,1000) + '...' : txt) : '<no body>'}`);
+      err.status = response.status;
+      err.data = { rawText: txt };
+      throw err;
     }
 
     return await response.json();
@@ -253,6 +258,18 @@ export const apiService = {
   async getAllExerciseMedia() {
     try { return await request<Record<string, string>>('/exercises/media'); } catch { return getLocal('media', {}); }
   },
+
+  async requestUploadSas(filename: string) {
+    try {
+      const path = `/exercises/sas?filename=${encodeURIComponent(filename)}`;
+      const fullUrl = `${API_BASE}${path}`;
+      console.debug && console.debug('[apiService] requestUploadSas', { API_BASE, path, fullUrl });
+      return await request<{ uploadUrl: string; blobUrl: string; expiresOn: string }>(path);
+    } catch (err) {
+      throw err;
+    }
+  },
+
 
   async getExerciseMedia(exerciseName: string) {
     const media = await this.getAllExerciseMedia();

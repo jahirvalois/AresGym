@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import cors from 'cors';
+import { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } from '@azure/storage-blob';
 import fs from 'fs';
 import os from 'os';
 import dotenv from 'dotenv';
@@ -31,7 +32,21 @@ app.use((req, res, next) => {
   } catch (e) {}
   return next();
 });
-app.use(express.json());
+// Allow larger JSON payloads for base64 uploads (use with care)
+app.use(express.json({ limit: '30mb' }));
+app.use(express.urlencoded({ extended: true, limit: '30mb' }));
+
+const AZ_CONTAINER = process.env.AZURE_STORAGE_CONTAINER || 'exercise-media';
+const AZ_CONN = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
+
+function parseConnectionString(conn) {
+  const parts = conn.split(';').reduce((acc, cur) => {
+    const [k, v] = cur.split('=');
+    if (k && v) acc[k] = v;
+    return acc;
+  }, {});
+  return { accountName: parts.AccountName, accountKey: parts.AccountKey };
+}
 
 function parseJwt(token) {
   try {
@@ -575,6 +590,28 @@ app.put('/api/exercises/media', async (req, res) => {
   await db.collection("config").updateOne({ id: 'exerciseMedia' }, { $set: { [`content.${exerciseName}`]: url } }, { upsert: true });
   await writeAuditLog(req.body.adminId || req.body.currentUser?.id || 'ADMIN', 'UPDATE_EXERCISE_MEDIA', { exerciseName, url });
   res.json({ success: true });
+});
+
+// (upload-base64 endpoint removed; SAS-only uploads are used)
+
+// Generate SAS URL for direct client upload
+app.get('/api/exercises/sas', async (req, res) => {
+  try {
+    const filename = req.query.filename ? String(req.query.filename) : `${Date.now()}`;
+    if (!AZ_CONN) return res.status(500).json({ error: 'MISSING_AZ_CONN' });
+    const { accountName, accountKey } = parseConnectionString(AZ_CONN);
+    if (!accountName || !accountKey) return res.status(500).json({ error: 'INVALID_CONN' });
+
+    const creds = new StorageSharedKeyCredential(accountName, accountKey);
+    const blobName = `${Date.now()}-${filename}`.replace(/\s+/g, '_');
+    const startsOn = new Date();
+    const expiresOn = new Date(Date.now() + (1000 * 60 * 60));
+
+    const sas = generateBlobSASQueryParameters({ containerName: AZ_CONTAINER, blobName, permissions: BlobSASPermissions.parse('cw'), startsOn, expiresOn }, creds).toString();
+    const uploadUrl = `https://${accountName}.blob.core.windows.net/${AZ_CONTAINER}/${blobName}?${sas}`;
+    const blobUrl = `https://${accountName}.blob.core.windows.net/${AZ_CONTAINER}/${blobName}`;
+    res.json({ uploadUrl, blobUrl, expiresOn: expiresOn.toISOString() });
+  } catch (err) { console.error('sas error', err); res.status(500).json({ error: err?.message || String(err) }); }
 });
 
 // --- SERVIR FRONTEND ---

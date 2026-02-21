@@ -132,7 +132,7 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
     return (
       <div className="space-y-8 animate-in fade-in">
         <header className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900">Tropas en <span className="text-primary">Combate</span></h2>
+          <h2 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">Tropas en <span className="text-primary">Combate</span></h2>
           <input type="text" placeholder="Buscar a un guerrero..." className="w-full md:w-80 bg-white border-2 p-3 rounded-2xl outline-none focus:border-primary font-bold text-xs uppercase placeholder-slate-400 placeholder:italic" value={searchUserQuery} onChange={e => setSearchUserQuery(e.target.value)} />
         </header>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -160,7 +160,7 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
     return (
       <div className="space-y-8 animate-in fade-in">
         <header className="flex flex-col md:flex-row justify-between items-center gap-6">
-          <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900">Forjar <span className="text-primary">Arsenal</span></h2>
+          <h2 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">Forjar <span className="text-primary">Arsenal</span></h2>
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center">
             <div className="w-full md:w-auto">
               <SearchableSelect

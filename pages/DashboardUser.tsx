@@ -185,7 +185,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
             </div>
             <div>
-              <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">Mi <span className="text-primary">Legión</span></h2>
+              <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">Mi <span className="text-primary">Legión</span></h2>
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-4 italic">Bienvenido de nuevo, {currentUser.name}</p>
             </div>
           </div>
@@ -216,7 +216,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       ) : (
         <div className="space-y-8">
           <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-             <h3 className="font-black text-3xl uppercase italic text-slate-900 tracking-tighter">Misión: {selectedDay}</h3>
+             <h5 className="font-black text-2xl uppercase italic text-slate-900 tracking-tighter">Misión: {selectedDay}</h5>
              <span className="bg-primary/10 text-primary px-5 py-2 rounded-full text-[10px] font-black uppercase italic tracking-widest shadow-sm">Ares Elite</span>
           </div>
 
@@ -263,7 +263,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
             
             <div className="space-y-2">
                <p className="text-primary font-black uppercase text-[10px] tracking-[0.4em] italic leading-none">Análisis de Combate</p>
-               <h3 className="text-4xl font-black uppercase italic tracking-tighter leading-tight pr-12 text-slate-900">{activeExercise.name}</h3>
+               <h5 className="text-2xl font-black uppercase italic tracking-tighter leading-tight pr-12 text-slate-900">{activeExercise.name}</h5>
             </div>
 
             <div className="aspect-video bg-black rounded-[1rem] overflow-hidden shadow-2xl relative group flex items-center justify-center">

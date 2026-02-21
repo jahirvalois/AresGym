@@ -97,7 +97,7 @@ export const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, active
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-[90] ${isDesktopCollapsed ? 'md:w-20 w-64' : 'w-64'} bg-secondary text-white transform transition-transform duration-300 ease-in-out border-r border-slate-800 shadow-2xl
+        fixed inset-y-0 left-0 z-[90] flex flex-col ${isDesktopCollapsed ? 'md:w-20 w-64' : 'w-64'} bg-secondary text-white transform transition-transform duration-300 ease-in-out border-r border-slate-800 shadow-2xl
         md:relative md:translate-x-0
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
@@ -126,7 +126,7 @@ export const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, active
               onClick={() => handleTabChange(item.id)}
               title={item.label}
               aria-label={item.label}
-              className={`transition-all duration-200 uppercase text-[10px] font-black tracking-[0.2em] ${
+              className={`transition-all duration-200 uppercase text-[10px] font-black tracking-[0.2em] rounded-lg ${
                 isDesktopCollapsed ? 'flex items-center justify-center py-4 w-full' : 'w-full text-left px-4 py-4 md:py-3'
               } ${activeTab === item.id ? 'sidebar-active shadow-lg transform translate-x-1' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
             >
@@ -135,7 +135,7 @@ export const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, active
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="mt-auto sticky bottom-0 p-4 border-t border-slate-800 bg-secondary/0">
           <div className={`flex items-center ${isDesktopCollapsed ? 'justify-center' : 'space-x-3 mb-4 px-2'}`}>
             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-xs font-black text-secondary overflow-hidden border-2 border-primary/30">
               {user.profilePicture ? (
@@ -155,7 +155,7 @@ export const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, active
             <button onClick={onLogout} title="Cerrar Sesión" aria-label="Cerrar Sesión" className="w-full flex items-center justify-center p-3 bg-slate-900 hover:bg-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95">
               <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8v8"/></svg>
             </button>
-          ) : (
+            ) : (
             <button onClick={onLogout} className="w-full bg-slate-900 hover:bg-red-600 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95">
               Cerrar Sesión
             </button>

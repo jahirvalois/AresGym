@@ -126,7 +126,7 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
       <div className="space-y-8 animate-in fade-in">
         <header className="flex flex-col md:flex-row justify-between items-center gap-4">
           <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900">Tropas en <span className="text-primary">Combate</span></h2>
-          <input type="text" placeholder="Filtrar guerreros..." className="w-full md:w-80 bg-white border-2 p-4 rounded-2xl outline-none focus:border-primary font-bold text-xs uppercase" value={searchUserQuery} onChange={e => setSearchUserQuery(e.target.value)} />
+          <input type="text" placeholder="Buscar a un guerrero..." className="w-full md:w-80 bg-white border-2 p-4 rounded-2xl outline-none focus:border-primary font-bold text-xs uppercase" value={searchUserQuery} onChange={e => setSearchUserQuery(e.target.value)} />
         </header>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {users.filter(u => u.name.toLowerCase().includes(searchUserQuery.toLowerCase())).map(u => (
@@ -160,7 +160,7 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
                 options={users.map(u => ({ value: u.id, label: u.name }))}
                 value={selectedUser || null}
                 onChange={(v) => setSelectedUser(v || '')}
-                placeholder="Selecciona Guerrero"
+                placeholder="Busca a un Guerrero"
                 className="w-full md:w-80"
               />
             </div>

@@ -34,6 +34,9 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeDayForExercise, setActiveDayForExercise] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [modalQuery, setModalQuery] = useState('');
+  const [modalPage, setModalPage] = useState(1);
+  const modalPageSize = 6;
   const [popupMessage, setPopupMessage] = useState<string>('');
   const [showPopup, setShowPopup] = useState<boolean>(false);
   const [popupType, setPopupType] = useState<'success' | 'warning'>('success');
@@ -59,6 +62,10 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
     };
     loadInitialData();
   }, [selectedCategory]);
+
+  useEffect(() => {
+    setModalPage(1);
+  }, [selectedCategory, modalQuery, exerciseBank]);
 
   // Correctly fetch routines asynchronously when selectedUser or activeTab changes
   useEffect(() => {
@@ -225,12 +232,50 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
                     </button>
                   ))}
                 </div>
-                <div className="flex-1 p-8 overflow-y-auto grid grid-cols-2 gap-4 content-start no-scrollbar bg-slate-50/10">
-                  {(exerciseBank[selectedCategory] || []).map(ex => (
-                    <button key={ex} onClick={() => addExercise(ex)} className="p-4 bg-white border-2 rounded-2xl text-left hover:border-primary font-black text-[10px] uppercase italic transition-all shadow-sm active:scale-95 group">
-                      <span className="group-hover:text-primary">{ex}</span>
-                    </button>
-                  ))}
+                <div className="flex-1 p-8 overflow-y-auto content-start no-scrollbar bg-slate-50/10">
+                  <div className="mb-4 flex items-center justify-between gap-4">
+                    <input placeholder="Buscar ejercicio..." value={modalQuery} onChange={e => setModalQuery(e.target.value)} className="flex-1 bg-white p-3 rounded-2xl border-2 outline-none focus:border-primary text-xs font-black uppercase" />
+                    <div className="text-sm text-slate-600">{modalPageSize} por página</div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {(() => {
+                      const all = exerciseBank[selectedCategory] || [];
+                      const filtered = all.filter(x => x.toLowerCase().includes(modalQuery.toLowerCase()));
+                      const total = filtered.length;
+                      const totalPages = Math.max(1, Math.ceil(total / modalPageSize));
+                      const items = filtered.slice((modalPage - 1) * modalPageSize, modalPage * modalPageSize);
+
+                      return (
+                        <>
+                          {items.map(ex => (
+                            <button key={ex} onClick={() => addExercise(ex)} className="p-4 bg-white border-2 rounded-2xl text-left hover:border-primary font-black text-[10px] uppercase italic transition-all shadow-sm active:scale-95 group">
+                              <span className="group-hover:text-primary">{ex}</span>
+                            </button>
+                          ))}
+
+                          {totalPages > 1 && (
+                            <div className="col-span-2 flex items-center justify-between px-4 py-3 bg-gray-50 mt-4">
+                              <div className="text-sm text-slate-600">Mostrando {((modalPage - 1) * modalPageSize) + 1} - {Math.min(modalPage * modalPageSize, total)} de {total} ejercicios</div>
+                              <div className="flex items-center space-x-2">
+                                <button onClick={() => setModalPage(p => Math.max(1, p - 1))} disabled={modalPage === 1} aria-label="Anterior" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
+                                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 18l-6-6 6-6v12z"/></svg>
+                                </button>
+                                <div className="flex items-center space-x-1">
+                                  {Array.from({ length: totalPages }).map((_, i) => (
+                                    <button key={i} onClick={() => setModalPage(i + 1)} className={`px-2 py-1 rounded ${modalPage === i + 1 ? 'bg-slate-900 text-white' : 'bg-white border'}`}>{i + 1}</button>
+                                  ))}
+                                </div>
+                                <button onClick={() => setModalPage(p => Math.min(totalPages, p + 1))} disabled={modalPage === totalPages} aria-label="Siguiente" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
+                                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l6 6-6 6V6z"/></svg>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
             </div>

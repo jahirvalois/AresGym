@@ -380,13 +380,17 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
             <div className="flex items-center justify-between px-4 py-3 bg-gray-50">
               <div className="text-sm text-slate-600">Mostrando {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, sortedUsers.length)} de {sortedUsers.length} usuarios</div>
               <div className="flex items-center space-x-2">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1 bg-white border rounded disabled:opacity-50">Anterior</button>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label="Anterior" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 18l-6-6 6-6v12z"/></svg>
+                </button>
                 <div className="flex items-center space-x-1">
                   {Array.from({ length: totalPages }).map((_, i) => (
                     <button key={i} onClick={() => setPage(i + 1)} className={`px-2 py-1 rounded ${page === i + 1 ? 'bg-slate-900 text-white' : 'bg-white border'}`}>{i + 1}</button>
                   ))}
                 </div>
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1 bg-white border rounded disabled:opacity-50">Siguiente</button>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label="Siguiente" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l6 6-6 6V6z"/></svg>
+                </button>
               </div>
             </div>
           )}
@@ -521,13 +525,17 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                           <div className="col-span-1 md:col-span-2 flex items-center justify-between px-4 py-3 bg-gray-50">
                             <div className="text-sm text-slate-600">Mostrando {((arsenalPage - 1) * arsenalPageSize) + 1} - {Math.min(arsenalPage * arsenalPageSize, total)} de {total} misiones</div>
                             <div className="flex items-center space-x-2">
-                              <button onClick={() => setArsenalPage(p => Math.max(1, p - 1))} disabled={arsenalPage === 1} className="px-3 py-1 bg-white border rounded disabled:opacity-50">Anterior</button>
+                              <button onClick={() => setArsenalPage(p => Math.max(1, p - 1))} disabled={arsenalPage === 1} aria-label="Anterior" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 18l-6-6 6-6v12z"/></svg>
+                              </button>
                               <div className="flex items-center space-x-1">
                                 {Array.from({ length: totalPages }).map((_, i) => (
                                   <button key={i} onClick={() => setArsenalPage(i + 1)} className={`px-2 py-1 rounded ${arsenalPage === i + 1 ? 'bg-slate-900 text-white' : 'bg-white border'}`}>{i + 1}</button>
                                 ))}
                               </div>
-                              <button onClick={() => setArsenalPage(p => Math.min(totalPages, p + 1))} disabled={arsenalPage === totalPages} className="px-3 py-1 bg-white border rounded disabled:opacity-50">Siguiente</button>
+                              <button onClick={() => setArsenalPage(p => Math.min(totalPages, p + 1))} disabled={arsenalPage === totalPages} aria-label="Siguiente" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l6 6-6 6V6z"/></svg>
+                              </button>
                             </div>
                           </div>
                         )}

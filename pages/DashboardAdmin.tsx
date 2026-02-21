@@ -49,6 +49,16 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     subEnd: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0] 
   });
 
+  // Arsenal (animations) search + pagination
+  const [arsenalQuery, setArsenalQuery] = useState('');
+  const [arsenalPage, setArsenalPage] = useState(1);
+  const arsenalPageSize = 6;
+
+  useEffect(() => {
+    // reset arsenal page when category or query changes
+    setArsenalPage(1);
+  }, [selectedArsenalCategory, arsenalQuery, exerciseBank]);
+
   const refreshData = async () => {
     const [u, logs, cats, bank, media] = await Promise.all([
       apiService.getUsers(),
@@ -471,22 +481,59 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                    </form>
                 </div>
 
+                <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <input
+                    placeholder="Buscar misión..."
+                    className="flex-1 sm:w-64 bg-slate-50 p-3 rounded-2xl border-2 outline-none focus:border-primary font-bold text-xs uppercase"
+                    value={arsenalQuery}
+                    onChange={e => setArsenalQuery(e.target.value)}
+                  />
+                  <div className="text-sm text-slate-600">Mostrando {arsenalPageSize} por página</div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {(exerciseBank[selectedArsenalCategory] || []).map(ex => (
-                    <div key={ex} className="p-6 bg-slate-50 rounded-[2.5rem] border-2 border-transparent hover:border-primary transition-all shadow-sm space-y-4">
-                      <div className="flex justify-between items-center border-b pb-3">
-                        <p className="font-black text-[12px] uppercase italic text-slate-900">{ex}</p>
-                        <div className="flex gap-4">
-                          <button onClick={() => setEditingEx({old: ex, new: ex})} className="text-blue-500 font-black text-[9px] uppercase hover:underline">Renombrar</button>
-                                  <button onClick={() => handleDeleteExercise(ex)} className="text-red-500 font-black text-[9px] uppercase hover:underline">Borrar</button>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                         <input type="text" placeholder="URL GIF/Video..." className="flex-1 bg-white border p-3 rounded-xl text-[10px] font-black uppercase outline-none focus:border-primary" value={mediaMap[ex] || ''} onChange={e => handleUpdateMedia(ex, e.target.value)} />
-                         <button onClick={() => setPreviewUrl(mediaMap[ex] || 'https://media.giphy.com/media/l0HlS9j1R2z8G3H5e/giphy.gif')} className="bg-black text-primary p-3 rounded-xl shadow-lg"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /></svg></button>
-                      </div>
-                    </div>
-                  ))}
+                  {(() => {
+                    const all = exerciseBank[selectedArsenalCategory] || [];
+                    const filtered = all.filter(x => x.toLowerCase().includes(arsenalQuery.toLowerCase()));
+                    const total = filtered.length;
+                    const totalPages = Math.max(1, Math.ceil(total / arsenalPageSize));
+                    const pageItems = filtered.slice((arsenalPage - 1) * arsenalPageSize, arsenalPage * arsenalPageSize);
+
+                    return (
+                      <>
+                        {pageItems.map(ex => (
+                          <div key={ex} className="p-6 bg-slate-50 rounded-[2.5rem] border-2 border-transparent hover:border-primary transition-all shadow-sm space-y-4">
+                            <div className="flex justify-between items-center border-b pb-3">
+                              <p className="font-black text-[12px] uppercase italic text-slate-900">{ex}</p>
+                              <div className="flex gap-4">
+                                <button onClick={() => setEditingEx({old: ex, new: ex})} className="text-blue-500 font-black text-[9px] uppercase hover:underline">Renombrar</button>
+                                <button onClick={() => handleDeleteExercise(ex)} className="text-red-500 font-black text-[9px] uppercase hover:underline">Borrar</button>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <input type="text" placeholder="URL GIF/Video..." className="flex-1 bg-white border p-3 rounded-xl text-[10px] font-black uppercase outline-none focus:border-primary" value={mediaMap[ex] || ''} onChange={e => handleUpdateMedia(ex, e.target.value)} />
+                              <button onClick={() => setPreviewUrl(mediaMap[ex] || 'https://media.giphy.com/media/l0HlS9j1R2z8G3H5e/giphy.gif')} className="bg-black text-primary p-3 rounded-xl shadow-lg"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /></svg></button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {totalPages > 1 && (
+                          <div className="col-span-1 md:col-span-2 flex items-center justify-between px-4 py-3 bg-gray-50">
+                            <div className="text-sm text-slate-600">Mostrando {((arsenalPage - 1) * arsenalPageSize) + 1} - {Math.min(arsenalPage * arsenalPageSize, total)} de {total} misiones</div>
+                            <div className="flex items-center space-x-2">
+                              <button onClick={() => setArsenalPage(p => Math.max(1, p - 1))} disabled={arsenalPage === 1} className="px-3 py-1 bg-white border rounded disabled:opacity-50">Anterior</button>
+                              <div className="flex items-center space-x-1">
+                                {Array.from({ length: totalPages }).map((_, i) => (
+                                  <button key={i} onClick={() => setArsenalPage(i + 1)} className={`px-2 py-1 rounded ${arsenalPage === i + 1 ? 'bg-slate-900 text-white' : 'bg-white border'}`}>{i + 1}</button>
+                                ))}
+                              </div>
+                              <button onClick={() => setArsenalPage(p => Math.min(totalPages, p + 1))} disabled={arsenalPage === totalPages} className="px-3 py-1 bg-white border rounded disabled:opacity-50">Siguiente</button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </>
             ) : (

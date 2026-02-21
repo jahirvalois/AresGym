@@ -300,7 +300,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
         </section>
         <div className="bg-white rounded-xl shadow-xl border overflow-hidden">
           <div className="w-full overflow-x-auto">
-            <table className="w-full table-fixed text-left">
+            <table className="w-full table-fixed text-left min-w-[900px] sm:min-w-full">
             <thead className="bg-slate-900 text-white text-[9px] uppercase">
               <tr>
                 <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-2/5" onClick={() => handleSort('name')}>
@@ -309,7 +309,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                     {sortConfig?.key === 'name' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
-                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-20" onClick={() => handleSort('role')}>
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-20 hidden sm:table-cell" onClick={() => handleSort('role')}>
                   <div className="flex items-center space-x-2 text-xs md:text-sm">
                     <span>Rol</span>
                     {sortConfig?.key === 'role' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
@@ -340,8 +340,12 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
             <tbody className="divide-y">
               {paginatedUsers.map(u => (
                 <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-1 md:p-2"><p className="font-black uppercase italic text-slate-900 text-xs md:text-sm">{u.name}</p><p className="text-[9px] text-slate-400">{u.email}</p></td>
-                  <td className="p-1 md:p-2 font-black text-[9px] uppercase text-primary">{u.role}</td>
+                  <td className="p-1 md:p-2">
+                    <p className="font-black uppercase italic text-slate-900 text-xs md:text-sm">{u.name}</p>
+                    <p className="text-[9px] text-slate-400">{u.email}</p>
+                    <p className="text-[9px] text-slate-400 sm:hidden font-black uppercase mt-1">{u.role}</p>
+                  </td>
+                  <td className="p-1 md:p-2 font-black text-[9px] uppercase text-primary hidden sm:table-cell">{u.role}</td>
                   <td className="p-1 md:p-2 font-black text-[9px] uppercase">{(u.origin || u.provider || 'manual').toString().toUpperCase()}</td>
                   <td className="p-1 md:p-2">
                     {u.isFirstLogin ? (

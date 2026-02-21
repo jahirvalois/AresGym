@@ -9,7 +9,6 @@ import {
   AuditLog,
   SubscriptionState 
 } from './types';
-import { EXERCISE_BANK, EXERCISE_CATEGORIES } from './exerciseBank';
 
 // Simulated DB
 let users: User[] = JSON.parse(localStorage.getItem('gym_users') || '[]');
@@ -18,11 +17,12 @@ let logs: WorkoutLog[] = JSON.parse(localStorage.getItem('gym_logs') || '[]');
 let auditLogs: AuditLog[] = JSON.parse(localStorage.getItem('gym_audit') || '[]');
 let exerciseMedia: Record<string, string> = JSON.parse(localStorage.getItem('gym_exercise_media') || '{}');
 
+// exerciseBank defaults are optional in this environment; use empty defaults if not present
 let dynamicExerciseBank: Record<string, string[]> = JSON.parse(
-  localStorage.getItem('gym_exercise_bank') || JSON.stringify(EXERCISE_BANK)
+  localStorage.getItem('gym_exercise_bank') || '{}'
 );
 let dynamicCategories: string[] = JSON.parse(
-  localStorage.getItem('gym_exercise_categories') || JSON.stringify(EXERCISE_CATEGORIES)
+  localStorage.getItem('gym_exercise_categories') || '[]'
 );
 
 const save = () => {

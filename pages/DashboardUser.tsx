@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/apiService';
-import { User, MonthlyRoutine, Exercise, SubscriptionState } from '../types';
+import { User, MonthlyRoutine, Exercise, SubscriptionState, UserRole } from '../types';
 
 const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -97,6 +97,59 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     if (!compA && compB) return -1;
     return 0;
   }) : [];
+
+  // helper to render media for active exercise (image, gif or video)
+  const renderActiveMedia = () => {
+    const mediaUrl = activeExercise?.mediaUrl || 'https://media.giphy.com/media/l0HlS9j1R2z8G3H5e/giphy.gif';
+    const isVideo = /\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(mediaUrl) || /video\//i.test(mediaUrl);
+    const isUser = currentUser.role === UserRole.USER;
+
+    if (isVideo) {
+      return (
+        <video
+          src={mediaUrl}
+          className="w-full h-full object-cover bg-black"
+          controls
+          playsInline
+          draggable={false}
+          onContextMenu={e => { if (isUser) e.preventDefault(); }}
+          onDragStart={e => { if (isUser) e.preventDefault(); }}
+          controlsList={isUser ? 'nodownload nofullscreen noremoteplayback' : undefined}
+          onLoadedData={() => setMediaLoading(false)}
+          onError={() => {
+            setMediaLoading(false);
+            setMediaError(true);
+          }}
+        />
+      );
+    }
+
+    return (
+      <>
+        <img
+          src={mediaUrl}
+          className={`w-full h-full object-cover transition-opacity duration-500 ${mediaLoading ? 'opacity-0' : 'opacity-80 group-hover:opacity-100'}`}
+          alt="Guía Visual"
+          onLoad={() => setMediaLoading(false)}
+          onError={() => {
+            setMediaLoading(false);
+            setMediaError(true);
+          }}
+          draggable={false}
+          style={{ userSelect: isUser ? 'none' : undefined }}
+        />
+        {isUser && (
+          <div
+            className="absolute inset-0"
+            onContextMenu={e => e.preventDefault()}
+            onMouseDown={e => e.preventDefault()}
+            onDragStart={e => e.preventDefault()}
+            onCopy={e => e.preventDefault()}
+          />
+        )}
+      </>
+    );
+  };
 
   return (
     <div className="space-y-8 pb-20">
@@ -227,18 +280,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                    <p className="text-white font-black uppercase italic text-sm">Visualización táctica en preparación</p>
                    <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest">El mentor está forjando este video</p>
                 </div>
-              ) : (
-                <img 
-                  src={activeExercise.mediaUrl || 'https://media.giphy.com/media/l0HlS9j1R2z8G3H5e/giphy.gif'} 
-                  className={`w-full h-full object-cover transition-opacity duration-500 ${mediaLoading ? 'opacity-0' : 'opacity-80 group-hover:opacity-100'}`}
-                  alt="Guía Visual"
-                  onLoad={() => setMediaLoading(false)}
-                  onError={() => {
-                    setMediaLoading(false);
-                    setMediaError(true);
-                  }}
-                />
-              )}
+              ) : renderActiveMedia()}
               
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
             </div>

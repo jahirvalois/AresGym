@@ -136,7 +136,7 @@ export const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, active
         </nav>
 
         <div className="mt-auto sticky bottom-0 p-4 border-t border-slate-800 bg-secondary/0">
-          <div className={`flex items-center ${isDesktopCollapsed ? 'justify-center' : 'space-x-3 mb-4 px-2'}`}>
+          <div className={`flex items-center ${isDesktopCollapsed ? 'justify-center mb-5' : 'space-x-3 mb-5 px-2'}`}>
             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-xs font-black text-secondary overflow-hidden border-2 border-primary/30">
               {user.profilePicture ? (
                 <img src={user.profilePicture} alt="Perfil" className="w-full h-full object-cover" />
@@ -152,7 +152,7 @@ export const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, active
             )}
           </div>
           {isDesktopCollapsed ? (
-            <button onClick={onLogout} title="Cerrar Sesión" aria-label="Cerrar Sesión" className="w-full flex items-center justify-center p-3 bg-slate-900 hover:bg-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95">
+            <button onClick={onLogout} title="Cerrar Sesión" aria-label="Cerrar Sesión" className="w-full flex items-center justify-center p-2 bg-slate-900 hover:bg-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95">
               <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8v8"/></svg>
             </button>
             ) : (

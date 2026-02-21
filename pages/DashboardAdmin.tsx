@@ -291,6 +291,16 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     });
   };
 
+  const renderRoleBadge = (role?: string) => {
+    const r = (role || 'USER').toString().toUpperCase();
+    let classes = 'text-[13px] font-black uppercase px-2 py-1 rounded-lg ';
+    let label = r;
+    if (r === 'ADMIN') classes += 'bg-slate-800 text-yellow-600';
+    else if (r === 'COACH') classes += 'bg-blue-100 text-blue-700';
+    else classes += 'bg-gray-300 text-black-100';
+    return <span className={classes}>{label}</span>;
+  };
+
   if (loading) return <div className="p-20 text-center font-black animate-pulse text-slate-400 uppercase italic">Sincronizando Base de Datos...</div>;
 
   if (activeTab === 'users') {
@@ -405,9 +415,9 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                   <td className="p-1 md:p-2">
                     <p className="font-black uppercase italic text-slate-900 text-xs md:text-sm">{u.name}</p>
                     <p className="text-[13px] text-slate-400">{u.email}</p>
-                    <p className="text-[13px] text-slate-400 sm:hidden font-black uppercase mt-1">{u.role}</p>
+                    <div className="sm:hidden mt-2">{renderRoleBadge(u.role)}</div>
                   </td>
-                  <td className="p-1 md:p-2 font-black text-[13px] uppercase text-primary hidden sm:table-cell">{u.role}</td>
+                  <td className="p-1 md:p-2 hidden sm:table-cell">{renderRoleBadge(u.role)}</td>
                   <td className="p-1 md:p-2 font-black text-[13px] uppercase">{(u.origin || u.provider || 'manual').toString().toUpperCase()}</td>
                   <td className="p-1 md:p-2">
                     {u.isFirstLogin ? (

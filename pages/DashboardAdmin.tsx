@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/apiService';
 import { User, UserRole, UserStatus, AuditLog } from '../types';
 
-type SortKey = 'name' | 'role' | 'status' | 'vencimiento';
+type SortKey = 'name' | 'role' | 'status' | 'vencimiento' | 'origin';
 type SortDirection = 'asc' | 'desc';
 
 export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> = ({ activeTab, currentUser }) => {
@@ -269,6 +269,10 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
           valA = a.role;
           valB = b.role;
           break;
+        case 'origin':
+          valA = (a.origin || a.provider || 'manual').toString().toLowerCase();
+          valB = (b.origin || b.provider || 'manual').toString().toLowerCase();
+          break;
         case 'status':
           valA = a.status;
           valB = b.status;
@@ -301,12 +305,26 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
           if (!f || !uploadTargetExercise) return;
           setUploading(true);
           try {
-            // Always use SAS: request an upload URL then PUT the file directly to Blob Storage
-            const sas = await apiService.requestUploadSas(f.name);
-            await fetch(sas.uploadUrl, { method: 'PUT', body: f, headers: { 'x-ms-blob-type': 'BlockBlob', 'Content-Type': f.type } });
-            await apiService.updateExerciseMedia(currentUser.id, uploadTargetExercise, sas.blobUrl);
-            setMediaMap(m => ({ ...m, [uploadTargetExercise]: sas.blobUrl }));
-            setNotification({ type: 'success', message: 'Archivo subido directamente a Blob Storage.' });
+            // Read file as base64 and POST to server proxy to avoid CORS issues
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              const fr = new FileReader();
+              fr.onload = () => resolve(String(fr.result));
+              fr.onerror = reject;
+              fr.readAsDataURL(f);
+            });
+            const base64 = dataUrl.split(',')[1];
+            const resp = await fetch('/api/exercises/upload-proxy', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ filename: f.name, contentBase64: base64, contentType: f.type, exerciseName: uploadTargetExercise, adminId: currentUser.id })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            const json = await resp.json();
+            const blobUrl = json.blobUrl;
+            // Update mapping locally and in backend for consistency
+            try { await apiService.updateExerciseMedia(currentUser.id, uploadTargetExercise, blobUrl); } catch (e) { /* ignore */ }
+            setMediaMap(m => ({ ...m, [uploadTargetExercise]: blobUrl }));
+            setNotification({ type: 'success', message: 'Archivo subido a través del servidor.' });
           } catch (err:any) {
             console.error('Upload failed', err);
             setNotification({ type: 'error', message: err?.message || 'Error al subir archivo' });
@@ -358,9 +376,10 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                     {sortConfig?.key === 'role' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
-                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-32">
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-32" onClick={() => handleSort('origin')}>
                   <div className="flex items-center space-x-2 text-xs md:text-sm">
                     <span>Origen</span>
+                    {sortConfig?.key === 'origin' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
                 <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-28" onClick={() => handleSort('status')}>
@@ -385,20 +404,20 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                 <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                   <td className="p-1 md:p-2">
                     <p className="font-black uppercase italic text-slate-900 text-xs md:text-sm">{u.name}</p>
-                    <p className="text-[9px] text-slate-400">{u.email}</p>
-                    <p className="text-[9px] text-slate-400 sm:hidden font-black uppercase mt-1">{u.role}</p>
+                    <p className="text-[13px] text-slate-400">{u.email}</p>
+                    <p className="text-[13px] text-slate-400 sm:hidden font-black uppercase mt-1">{u.role}</p>
                   </td>
-                  <td className="p-1 md:p-2 font-black text-[9px] uppercase text-primary hidden sm:table-cell">{u.role}</td>
-                  <td className="p-1 md:p-2 font-black text-[9px] uppercase">{(u.origin || u.provider || 'manual').toString().toUpperCase()}</td>
+                  <td className="p-1 md:p-2 font-black text-[13px] uppercase text-primary hidden sm:table-cell">{u.role}</td>
+                  <td className="p-1 md:p-2 font-black text-[13px] uppercase">{(u.origin || u.provider || 'manual').toString().toUpperCase()}</td>
                   <td className="p-1 md:p-2">
                     {u.isFirstLogin ? (
-                      <span className="text-[8px] font-black uppercase px-2 py-1 rounded-lg bg-amber-100 text-amber-700">INV. ENVIADA</span>
+                      <span className="text-[13px] font-black uppercase px-2 py-1 rounded-lg bg-amber-100 text-amber-700">INV. ENVIADA</span>
                     ) : (
-                      <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-lg ${u.status === UserStatus.ACTIVE ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{u.status}</span>
+                      <span className={`text-[13px] font-black uppercase px-2 py-1 rounded-lg ${u.status === UserStatus.ACTIVE ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{u.status}</span>
                     )}
                   </td>
-                  <td className="p-1 md:p-2 font-black text-[9px]">{u.role === UserRole.USER ? new Date(u.subscriptionEndDate).toLocaleDateString() : 'INFINITO'}</td>
-                  <td className="p-1 md:p-2 text-right space-x-2 text-[10px]">
+                  <td className="p-1 md:p-2 font-black text-[13px]">{u.role === UserRole.USER ? new Date(u.subscriptionEndDate).toLocaleDateString() : 'INFINITO'}</td>
+                  <td className="p-1 md:p-2 text-right space-x-2 text-[13px]">
                     <button onClick={() => setEditingUser(u)} className="text-blue-600 font-black uppercase hover:underline">Ajustar</button>
                     {u.status !== UserStatus.ACTIVE && (
                       <button onClick={async () => { try { await apiService.updateUser(currentUser, u.id, { status: UserStatus.ACTIVE, isFirstLogin: false }); setNotification({ type: 'success', message: 'Guerrero activado.' }); refreshData(); } catch (err:any) { setNotification({ type: 'error', message: err?.message || 'No se pudo activar.' }); } }} className="text-green-600 font-black uppercase hover:underline">Activar</button>
@@ -483,11 +502,25 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
           if (!f || !uploadTargetExercise) return;
           setUploading(true);
           try {
-            const sas = await apiService.requestUploadSas(f.name);
-            await fetch(sas.uploadUrl, { method: 'PUT', body: f, headers: { 'x-ms-blob-type': 'BlockBlob', 'Content-Type': f.type } });
-            await apiService.updateExerciseMedia(currentUser.id, uploadTargetExercise, sas.blobUrl);
-            setMediaMap(m => ({ ...m, [uploadTargetExercise]: sas.blobUrl }));
-            setNotification({ type: 'success', message: 'Archivo subido directamente a Blob Storage.' });
+            // Read file as base64 and POST to server proxy to avoid CORS issues
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              const fr = new FileReader();
+              fr.onload = () => resolve(String(fr.result));
+              fr.onerror = reject;
+              fr.readAsDataURL(f);
+            });
+            const base64 = dataUrl.split(',')[1];
+            const resp = await fetch('/api/exercises/upload-proxy', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ filename: f.name, contentBase64: base64, contentType: f.type, exerciseName: uploadTargetExercise, adminId: currentUser.id })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            const json = await resp.json();
+            const blobUrl = json.blobUrl;
+            try { await apiService.updateExerciseMedia(currentUser.id, uploadTargetExercise, blobUrl); } catch (e) { /* ignore */ }
+            setMediaMap(m => ({ ...m, [uploadTargetExercise]: blobUrl }));
+            setNotification({ type: 'success', message: 'Archivo subido a través del servidor.' });
           } catch (err:any) {
             console.error('Upload failed', err);
             setNotification({ type: 'error', message: err?.message || 'Error al subir archivo' });

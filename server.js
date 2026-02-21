@@ -614,6 +614,43 @@ app.get('/api/exercises/sas', async (req, res) => {
   } catch (err) { console.error('sas error', err); res.status(500).json({ error: err?.message || String(err) }); }
 });
 
+// Server-side upload proxy to avoid CORS issues from browser -> Blob
+app.post('/api/exercises/upload-proxy', async (req, res) => {
+  try {
+    const { filename, contentBase64, contentType, exerciseName, adminId } = req.body || {};
+    if (!filename || !contentBase64 || !exerciseName) return res.status(400).json({ error: 'MISSING_FIELDS' });
+    if (!AZ_CONN) return res.status(500).json({ error: 'MISSING_AZ_CONN' });
+
+    // Upload to blob storage
+    const blobServiceClient = BlobServiceClient.fromConnectionString(AZ_CONN);
+    const containerClient = blobServiceClient.getContainerClient(AZ_CONTAINER);
+    const blobName = `${Date.now()}-${filename}`.replace(/\s+/g, '_');
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    const buffer = Buffer.from(contentBase64, 'base64');
+
+    await blockBlobClient.uploadData(buffer, {
+      blobHTTPHeaders: { blobContentType: contentType || 'application/octet-stream' }
+    });
+
+    const { accountName } = parseConnectionString(AZ_CONN);
+    const blobUrl = `https://${accountName}.blob.core.windows.net/${AZ_CONTAINER}/${blobName}`;
+
+    // Persist mapping in config (same as client flow)
+    try {
+      await db.collection('config').updateOne({ id: 'exerciseMedia' }, { $set: { [`content.${exerciseName}`]: blobUrl } }, { upsert: true });
+    } catch (e) {
+      console.warn('Failed to persist exercise media mapping', e);
+    }
+
+    await writeAuditLog(adminId || req.body.currentUser?.id || 'SYSTEM', 'UPLOAD_EXERCISE_MEDIA', { exerciseName, blobUrl });
+
+    return res.json({ blobUrl });
+  } catch (err) {
+    console.error('upload-proxy error', err);
+    return res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
 // --- SERVIR FRONTEND ---
 
 // OpenAPI spec (basic)

@@ -722,8 +722,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
 // Servir archivos estáticos de la carpeta 'dist'
 app.use(express.static(path.join(__dirname, 'dist')));
-// Serve images folder (local assets like spartan-helmet.png)
-app.use('/images', express.static(path.join(__dirname, 'images')));
 
 // Cualquier ruta que no sea de la API o docs, sirve el index.html (soporte para SPA)
 app.get('*', (req, res) => {

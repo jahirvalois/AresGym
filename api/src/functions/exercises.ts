@@ -1,7 +1,6 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { connectToDatabase } from "../lib/mongodb";
-
 import { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } from "@azure/storage-blob";
 
 const AZ_CONTAINER = process.env.AZURE_STORAGE_CONTAINER || 'exercise-media';
@@ -52,7 +51,7 @@ export async function exercisesHandler(request: HttpRequest, context: Invocation
                         const now = new Date();
                         const expiresOn = new Date(Date.now() + (1000 * 60 * 15)); // 15 minutes
 
-                        for (const [ex, url] of Object.entries(content as Record<string, string>)) {
+                        for (const [ex, url] of Object.entries(content)) {
                             try {
                                 if (!url) { signed[ex] = ''; continue; }
                                 // If URL already has query params assume it's signed

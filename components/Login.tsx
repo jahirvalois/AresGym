@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { brandingService } from '../services/brandingService';
 import { apiService } from '../services/apiService';
 import PasswordReset from './PasswordReset';
 
@@ -52,10 +51,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   return (
     <div className="login-container">
       <div className="login-box">
-        <div className="text-center mb-6">
-          <img src={brandingService.getSettings().logo} alt="Logo" className="w-20 h-20 mx-auto" />
-          <h1 className="mt-3 font-black uppercase tracking-tighter">{brandingService.getSettings().gymName}</h1>
-        </div>
+        <h1>AresGym Pro</h1>
         <h2>Login</h2>
 
         {error && <div className="alert alert-error">{error}</div>}

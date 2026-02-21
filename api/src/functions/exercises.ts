@@ -52,7 +52,7 @@ export async function exercisesHandler(request: HttpRequest, context: Invocation
                         const now = new Date();
                         const expiresOn = new Date(Date.now() + (1000 * 60 * 15)); // 15 minutes
 
-                        for (const [ex, url] of Object.entries(content)) {
+                        for (const [ex, url] of Object.entries(content as Record<string, string>)) {
                             try {
                                 if (!url) { signed[ex] = ''; continue; }
                                 // If URL already has query params assume it's signed

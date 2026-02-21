@@ -300,7 +300,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     
     return (
       <div className="space-y-8 animate-in fade-in">
-        <input ref={el => fileInputRef.current = el} type="file" accept="image/*,video/*" className="hidden" onChange={async (e) => {
+        <input ref={el => { fileInputRef.current = el }} type="file" accept="image/*,video/*" className="hidden" onChange={async (e) => {
           const f = e.target.files?.[0];
           if (!f || !uploadTargetExercise) return;
           setUploading(true);
@@ -405,9 +405,13 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                   <td className="p-1 md:p-2">
                     <p className="font-black uppercase italic text-slate-900 text-xs md:text-sm">{u.name}</p>
                     <p className="text-[13px] text-slate-400">{u.email}</p>
-                    <p className="text-[13px] text-slate-400 sm:hidden font-black uppercase mt-1">{u.role}</p>
+                    <p className="sm:hidden mt-1">
+                      <span className={`text-[12px] font-black uppercase px-2 py-1 rounded-lg ${u.role === UserRole.ADMIN ? 'bg-black text-primary' : u.role === UserRole.COACH ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{u.role}</span>
+                    </p>
                   </td>
-                  <td className="p-1 md:p-2 font-black text-[13px] uppercase text-primary hidden sm:table-cell">{u.role}</td>
+                  <td className="p-1 md:p-2 hidden sm:table-cell">
+                    <span className={`text-[13px] font-black uppercase px-2 py-1 rounded-lg ${u.role === UserRole.ADMIN ? 'bg-black text-primary' : u.role === UserRole.COACH ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{u.role}</span>
+                  </td>
                   <td className="p-1 md:p-2 font-black text-[13px] uppercase">{(u.origin || u.provider || 'manual').toString().toUpperCase()}</td>
                   <td className="p-1 md:p-2">
                     {u.isFirstLogin ? (
@@ -497,7 +501,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
   if (activeTab === 'animations') {
     return (
       <div className="space-y-8 animate-in fade-in">
-        <input ref={el => fileInputRef.current = el} type="file" accept="image/*,video/*" className="hidden" onChange={async (e) => {
+        <input ref={el => { fileInputRef.current = el }} type="file" accept="image/*,video/*" className="hidden" onChange={async (e) => {
           const f = e.target.files?.[0];
           if (!f || !uploadTargetExercise) return;
           setUploading(true);

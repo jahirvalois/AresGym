@@ -15,6 +15,9 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
   const [categories, setCategories] = useState<string[]>([]);
   const [exerciseBank, setExerciseBank] = useState<Record<string, string[]>>({});
   const [selectedArsenalCategory, setSelectedArsenalCategory] = useState<string>('');
+  // keep a ref to the current selected category so intervaled refreshData can read latest value
+  const selectedArsenalCategoryRef = useRef<string>(selectedArsenalCategory);
+  useEffect(() => { selectedArsenalCategoryRef.current = selectedArsenalCategory; }, [selectedArsenalCategory]);
   const [mediaMap, setMediaMap] = useState<Record<string, string>>({});
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,7 +84,19 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     setCategories(cats);
     setExerciseBank(bank);
     setMediaMap(media);
-    if (!selectedArsenalCategory && cats.length > 0) setSelectedArsenalCategory(cats[0]);
+    try { console.debug('[DashboardAdmin] refreshData fetched categories:', cats); } catch (e) {}
+    // preserve existing selection when possible; only set default if none selected
+    const currentSelected = selectedArsenalCategoryRef.current;
+    if (!currentSelected && cats.length > 0) {
+      try { console.debug('[DashboardAdmin] selecting default arsenal category:', cats[0]); } catch (e) {}
+      setSelectedArsenalCategory(cats[0]);
+    } else if (currentSelected && cats.length > 0) {
+      const exists = cats.includes(currentSelected);
+      if (!exists) {
+        try { console.debug('[DashboardAdmin] previous selected category no longer exists, selecting default:', cats[0]); } catch (e) {}
+        setSelectedArsenalCategory(cats[0]);
+      }
+    }
     setLoading(false);
   };
 
@@ -90,6 +105,10 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     const interval = setInterval(refreshData, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    try { console.debug('[DashboardAdmin] selectedArsenalCategory changed ->', selectedArsenalCategory); } catch (e) {}
+  }, [selectedArsenalCategory]);
 
   // reset audit page when search/filter or logs change
   useEffect(() => {

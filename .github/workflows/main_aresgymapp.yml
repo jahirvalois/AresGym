@@ -88,7 +88,8 @@ jobs:
               NODE_ENV="production" \
               WEBSITE_NODE_DEFAULT_VERSION="24" \
               VITE_GOOGLE_CLIENT_ID="${{ secrets.VITE_GOOGLE_CLIENT_ID }}" \
-              VITE_API_BASE_URL="${{ secrets.VITE_API_BASE_URL }}"
+              VITE_API_BASE_URL="${{ secrets.VITE_API_BASE_URL }}" \
+              VITE_SOCIAL_ONLY_LOGIN="${{ secrets.VITE_SOCIAL_ONLY_LOGIN }}"
       
       - name: Restart Azure Web App
         run: |

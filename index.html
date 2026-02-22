@@ -42,11 +42,13 @@
     (function(){
       try {
         // Vite will replace import.meta.env in index.html during dev/build
-        // Expose the value to runtime via window for components that may not get import.meta.env
-        // This is a temporary debug aid.
+        // Expose the values to runtime via window for components that may not get import.meta.env
+        // These are temporary debug aids.
         // eslint-disable-next-line no-undef
         window.__VITE_GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
         window.__VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+        // expose social-only flag to runtime too
+        window.__VITE_SOCIAL_ONLY_LOGIN = import.meta.env.VITE_SOCIAL_ONLY_LOGIN;
         // Fallback in case import.meta.env wasn't injected by Vite in modules
         window.__VITE_API_BASE_URL = window.__VITE_API_BASE_URL || 'http://localhost:8081';
         // debug info removed for production

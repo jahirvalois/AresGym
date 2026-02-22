@@ -63,6 +63,57 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Ensure the Google button is rendered when toggling between email/social views
+  
+
+  // Optionally hide traditional login and show only social-login by default
+  const SOCIAL_ONLY_LOGIN = (() => {
+    const meta = (import.meta as any)?.env?.VITE_SOCIAL_ONLY_LOGIN;
+    const win = typeof window !== 'undefined' ? (window as any).__VITE_SOCIAL_ONLY_LOGIN : undefined;
+    if (win !== undefined && win !== null) return win === true || String(win) === 'true';
+    return meta === 'true' || meta === true;
+  })();
+  const [showEmailForm, setShowEmailForm] = useState(false);
+
+  // Ensure the Google button is rendered when toggling between email/social views
+  useEffect(() => {
+    if (authView !== 'login') return;
+    const clientId = ((import.meta as any)?.env?.VITE_GOOGLE_CLIENT_ID) || (window as any).__VITE_GOOGLE_CLIENT_ID;
+    const container = document.getElementById('googleSignInDiv');
+    if (!clientId || !container) return;
+    const win: any = window as any;
+    if (!win.google || !win.google.accounts || !win.google.accounts.id) return;
+
+    try {
+      // (re-)initialize (idempotent) to ensure callback is set
+      win.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: (response: any) => {
+          try {
+            const idToken = response.credential;
+            apiService.socialLogin('google', idToken).then((res: any) => {
+              const u = res.user || res;
+              if (u) {
+                const normalized = (u.id || u._id) ? ({ ...u, id: String(u.id || u._id) }) : u;
+                if (normalized.status && normalized.status !== 'ACTIVE') {
+                  setPopup({ open: true, type: 'warning', title: 'Cuenta inactiva', message: 'Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.' });
+                  return;
+                }
+                localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+                setUser(normalized);
+              }
+            }).catch(() => {});
+          } catch (e) {
+            console.warn('Failed to handle Google credential', e);
+          }
+        }
+      });
+      win.google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: 100 });
+    } catch (e) {
+      // ignore render errors
+    }
+  }, [showEmailForm, authView]);
+
   useEffect(() => {
     const url = new URL(window.location.href);
     const token = url.searchParams.get('token');
@@ -293,15 +344,31 @@ const App: React.FC = () => {
             )}
 
             {authView === 'login' ? (
-              <form onSubmit={handleLogin} className="space-y-6">
-                <input type="email" className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 bg-slate-50 outline-none font-bold text-sm" placeholder="Email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
-                <input type="password" className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 bg-slate-50 outline-none font-bold text-sm" placeholder="Contraseña" value={loginPass} onChange={e => setLoginPass(e.target.value)} required />
-                <div className="text-right">
-                   <button type="button" onClick={() => setAuthView('forgot-password')} className="text-[10px] font-black uppercase italic text-primary hover:text-black">¿Olvidaste tu contraseña?</button>
+              ((SOCIAL_ONLY_LOGIN && !showEmailForm) ? (
+                <div className="space-y-6">
+                  <div id="googleSignInDiv" className="mt-4 flex justify-center"></div>
+                  <div className="text-center">
+                    <button type="button" onClick={() => setShowEmailForm(true)} className="mt-4 text-[8px] font-black uppercase italic text-primary hover:text-black">Iniciar con email</button>
+                  </div>
                 </div>
-                <button type="submit" className={loginButtonClasses}>Entrar</button>
-                <div id="googleSignInDiv" className="mt-4"></div>
-              </form>
+              ) : (
+                <form onSubmit={handleLogin} className="space-y-6">
+                  <input type="email" className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 bg-slate-50 outline-none font-bold text-sm" placeholder="Email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
+                  <input type="password" className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 bg-slate-50 outline-none font-bold text-sm" placeholder="Contraseña" value={loginPass} onChange={e => setLoginPass(e.target.value)} required />
+                  <div className="text-right">
+                     <button type="button" onClick={() => setAuthView('forgot-password')} className="text-[10px] font-black uppercase italic text-primary hover:text-black">¿Olvidaste tu contraseña?</button>
+                  </div>
+                  <button type="submit" className={loginButtonClasses}>Entrar</button>
+                  {SOCIAL_ONLY_LOGIN && (
+                    <div className="text-center">
+                      <button type="button" onClick={() => setShowEmailForm(false)} className="mt-2 text-[10px] font-black uppercase italic text-primary hover:text-black">Volver a social login</button>
+                    </div>
+                  )}
+                  {!(SOCIAL_ONLY_LOGIN && showEmailForm) && (
+                    <div id="googleSignInDiv" className="mt-4 flex justify-center"></div>
+                  )}
+                </form>
+              ))
             ) : authView === 'forgot-password' ? (
               <form onSubmit={handleRequestReset} className="space-y-6">
                 <input type="email" className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 bg-slate-50 outline-none font-bold text-sm" placeholder="Tu Email Registrado" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />

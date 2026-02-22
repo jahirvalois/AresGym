@@ -86,6 +86,19 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     setActiveExercise(null);
   };
 
+  // Open exercise and always refresh media URL from server
+  const openExercise = async (ex: Exercise) => {
+    try {
+      setMediaLoading(true);
+      setMediaError(false);
+      const mediaUrl = await apiService.getExerciseMedia(ex.name);
+      setActiveExercise({ ...ex, mediaUrl: mediaUrl || ex.mediaUrl });
+    } catch (e) {
+      // fallback to existing media on error
+      setActiveExercise(ex);
+    }
+  };
+
   if (loading) return <div className="p-20 text-center font-black animate-pulse text-slate-400 uppercase tracking-widest italic text-lg">Invocando el Arsenal...</div>;
 
   const currentDayRoutine = routine?.weeks[0].days.find(d => d.dayName === selectedDay);
@@ -229,7 +242,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
               return (
                 <div 
                   key={ex.id} 
-                  onClick={() => setActiveExercise(ex)} 
+                  onClick={() => openExercise(ex)} 
                   className={`p-6 rounded-[1rem] border-2 transition-all cursor-pointer relative overflow-hidden group shadow-md ${completed ? 'bg-green-500/10 border-green-500/20 opacity-60 grayscale-[0.5]' : 'bg-white border-slate-50 hover:border-primary hover:translate-y-[-6px] hover:shadow-2xl'}`}
                 >
                   <div className="flex justify-between items-center relative z-10">

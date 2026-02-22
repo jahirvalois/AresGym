@@ -108,7 +108,10 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       return (
         <video
           src={mediaUrl}
-          className="w-full h-full object-cover bg-black"
+          className="w-full h-full object-contain bg-black"
+          autoPlay
+          muted
+          loop
           controls
           playsInline
           draggable={false}
@@ -128,7 +131,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       <>
         <img
           src={mediaUrl}
-          className={`w-full h-full object-cover transition-opacity duration-500 ${mediaLoading ? 'opacity-0' : 'opacity-80 group-hover:opacity-100'}`}
+          className={`w-full h-full object-contain transition-opacity duration-500 ${mediaLoading ? 'opacity-0' : 'opacity-80 group-hover:opacity-100'}`}
           alt="Guía Visual"
           onLoad={() => setMediaLoading(false)}
           onError={() => {

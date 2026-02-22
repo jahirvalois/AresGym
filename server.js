@@ -581,8 +581,70 @@ app.put('/api/exercises/bank/category/rename', async (req, res) => {
 });
 
 app.get('/api/exercises/media', async (req, res) => {
-  const data = await db.collection("config").findOne({ id: 'exerciseMedia' });
-  res.json(data?.content || {});
+  try {
+    const data = await db.collection("config").findOne({ id: 'exerciseMedia' });
+    const content = data?.content || {};
+
+    // If storage connection is available, generate short-lived READ SAS for blobs
+    if (AZ_CONN) {
+      try {
+        const { accountName, accountKey } = parseConnectionString(AZ_CONN);
+        if (accountName && accountKey) {
+          const creds = new StorageSharedKeyCredential(accountName, accountKey);
+          const signed = {};
+          const containerSegment = `/${AZ_CONTAINER}/`;
+          const startsOn = new Date();
+          const expiresOn = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+          // Aggressively sign any entry that points to our storage account + container
+          for (const [k, v] of Object.entries(content)) {
+            try {
+              if (!v || typeof v !== 'string') { signed[k] = String(v); continue; }
+              // If URL already contains a SAS (sv=) return as-is
+              if (v.includes('?') && v.includes('sv=')) { signed[k] = v; continue; }
+
+              // Detect if this URL references our storage account and container
+              const isSameAccount = v.includes(`${accountName}.blob.core.windows.net`);
+              const containerIdx = v.indexOf(containerSegment);
+
+              if (isSameAccount && containerIdx !== -1) {
+                // Extract blob name (strip container prefix and any query string)
+                let blobName = v.substring(containerIdx + containerSegment.length);
+                const qIdx = blobName.indexOf('?');
+                if (qIdx !== -1) blobName = blobName.substring(0, qIdx);
+                blobName = decodeURIComponent(blobName || '');
+
+                try {
+                  const sas = generateBlobSASQueryParameters({ containerName: AZ_CONTAINER, blobName, permissions: BlobSASPermissions.parse('r'), startsOn, expiresOn }, creds).toString();
+                  signed[k] = `https://${accountName}.blob.core.windows.net/${AZ_CONTAINER}/${encodeURIComponent(blobName)}?${sas}`;
+                  continue;
+                } catch (signErr) {
+                  // If signing fails for any reason, fall back to original URL
+                  console.warn('Failed to sign blob for', k, signErr?.message || signErr);
+                  signed[k] = v;
+                  continue;
+                }
+              }
+
+              // Not a blob we can sign — leave as-is
+              signed[k] = v;
+            } catch (inner) {
+              signed[k] = v;
+            }
+          }
+
+          return res.json(signed);
+        }
+      } catch (e) {
+        console.warn('Failed to generate read SAS for exercise media', e);
+      }
+    }
+
+    return res.json(content);
+  } catch (err) {
+    console.error('exercises/media read error', err);
+    return res.status(500).json({ error: err?.message || String(err) });
+  }
 });
 
 app.put('/api/exercises/media', async (req, res) => {

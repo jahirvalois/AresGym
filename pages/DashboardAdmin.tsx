@@ -679,10 +679,10 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
         )}
         {previewUrl && (
           <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[250] animate-in zoom-in">
-            <div className="bg-white w-full max-w-lg rounded-[4rem] p-12 space-y-6 relative border">
+            <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-12 space-y-2 relative border">
               <button onClick={() => setPreviewUrl(null)} className="absolute top-8 right-8 w-10 h-10 bg-slate-100 hover:bg-red-500 hover:text-white rounded-2xl font-black transition-all flex items-center justify-center text-lg shadow-lg">✕</button>
-              <h3 className="text-3xl font-black uppercase italic">Vista Táctica</h3>
-              <div className="aspect-video bg-black rounded-[2.5rem] overflow-hidden shadow-2xl"><img src={previewUrl} className="w-full h-full object-cover" alt="Preview" /></div>
+              <h3 className="text-2xl font-black uppercase italic">Vista Táctica</h3>
+              <div className="aspect-video bg-black rounded-[1rem] overflow-hidden shadow-2xl"><img src={previewUrl} className="w-full h-full object-cover" alt="Preview" /></div>
             </div>
           </div>
         )}
@@ -745,7 +745,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                   <>
                     {pageItems.map(log => (
                       <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-4 md:p-8 font-mono text-[11px] text-slate-400 align-top">{new Date(log.timestamp).toLocaleString()}</td>
+                        <td className="p-4 md:p-8 font-mono text-[11px] text-slate-900 align-top">{new Date(log.timestamp).toLocaleString()}</td>
                         <td className="p-4 md:p-8 font-black uppercase italic text-xs align-top">{users.find(u => u.id === log.userId)?.name || 'SISTEMA'}</td>
                         <td className="p-4 md:p-8 align-top"><span className="text-[9px] font-black uppercase px-2 py-1 bg-slate-100 rounded text-slate-600 border">{log.action}</span></td>
                         <td className="p-4 md:p-8 font-bold text-xs text-slate-600 break-words whitespace-normal align-top">{log.details}</td>

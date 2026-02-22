@@ -1,5 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
+import googleIcon from './images/google-icon-logo.png';
+// import appleIcon from './images/apple-icon-logo-png.png';
+import microsoftIcon from './images/microsoft-icon-logo.png';
 import Popup from './components/Popup';
 import { User, UserRole, SubscriptionState } from './types';
 import { apiService } from './services/apiService';
@@ -157,13 +160,38 @@ const App: React.FC = () => {
     try {
       const container = document.getElementById('googleSignInDiv');
       if (!container) return console.warn('Google container not found');
-      // find rendered google button inside container
-      const btn = container.querySelector('[role="button"], button');
-      if (btn && (btn as HTMLElement).click) {
-        (btn as HTMLElement).click();
+      const win: any = window as any;
+      // If GSI is available, ensure the injected button is rendered. If not, render it and retry clicking a few times.
+      if (win.google && win.google.accounts && win.google.accounts.id) {
+        const ensureRender = () => {
+          try {
+            win.google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: 220 });
+          } catch (e) {
+            // ignore render errors
+          }
+        };
+
+        let btn = container.querySelector('[role="button"], button') as HTMLElement | null;
+        if (!btn) ensureRender();
+
+        let attempts = 0;
+        const maxAttempts = 8;
+        const intervalId = window.setInterval(() => {
+          attempts += 1;
+          btn = container.querySelector('[role="button"], button') as HTMLElement | null;
+          if (btn && btn.click) {
+            try { btn.click(); } catch (e) { /* ignore click errors */ }
+            clearInterval(intervalId);
+            return;
+          }
+          if (attempts >= maxAttempts) {
+            clearInterval(intervalId);
+            console.warn('Google rendered button not found after retries');
+          }
+        }, 300);
         return;
       }
-      console.warn('Google rendered button not found yet');
+      console.warn('Google Identity SDK not available');
     } catch (e) {
       console.warn('signInGoogle failed', e);
     }
@@ -436,13 +464,13 @@ const App: React.FC = () => {
                     <div id="googleSignInDiv" className="sr-only" aria-hidden></div>
                     <button type="button" onClick={signInGoogle} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-white text-slate-800 border border-slate-200 rounded-md font-bold text-sm shadow-sm hover:shadow-md">
                       <span className="w-5 h-5 inline-block" aria-hidden>
-                        <img src="/images/google-icon-logo.png" alt="Google" className="w-full h-full object-contain" />
+                        <img src={googleIcon} alt="Google" className="w-full h-full object-contain" />
                       </span>
                       <span>Sign in with Google</span>
                     </button>
                       <button type="button" onClick={signInMicrosoft} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-[#2F2F2F] text-white px-4 rounded-md font-bold text-sm shadow-md hover:opacity-90">
                         <span className="w-5 h-5 inline-block" aria-hidden>
-                          <img src="/images/microsoft-icon-logo.png" alt="Microsoft" className="w-full h-full object-contain" />
+                          <img src={microsoftIcon} alt="Microsoft" className="w-full h-full object-contain" />
                         </span>
                         <span>Sign in with Microsoft</span>
                       </button> 
@@ -477,13 +505,13 @@ const App: React.FC = () => {
                       <div id="googleSignInDiv" className="sr-only" aria-hidden></div>
                       <button type="button" onClick={signInGoogle} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-white text-slate-800 border border-slate-200 rounded-md font-bold text-sm shadow-sm hover:shadow-md">
                         <span className="w-5 h-5 inline-block" aria-hidden>
-                          <img src="/images/google-icon-logo.png" alt="Google" className="w-full h-full object-contain" />
+                          <img src={googleIcon} alt="Google" className="w-full h-full object-contain" />
                         </span>
                         <span>Sign in with Google</span>
                       </button>
                       <button type="button" onClick={signInMicrosoft} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-[#2F2F2F] text-white px-4 rounded-md font-bold text-sm shadow-md hover:opacity-90">
                         <span className="w-5 h-5 inline-block" aria-hidden>
-                          <img src="/images/microsoft-icon-logo.png" alt="Microsoft" className="w-full h-full object-contain" />
+                          <img src={microsoftIcon} alt="Microsoft" className="w-full h-full object-contain" />
                         </span>
                         <span>Sign in with Microsoft</span>
                       </button>

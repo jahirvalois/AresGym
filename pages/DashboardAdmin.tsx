@@ -679,10 +679,16 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
         )}
         {previewUrl && (
           <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[250] animate-in zoom-in">
-            <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-12 space-y-2 relative border">
+            <div className="bg-white w-full max-w-lg rounded-[1.5rem] p-8 space-y-2 relative border">
               <button onClick={() => setPreviewUrl(null)} className="absolute top-8 right-8 w-10 h-10 bg-slate-100 hover:bg-red-500 hover:text-white rounded-2xl font-black transition-all flex items-center justify-center text-lg shadow-lg">✕</button>
               <h3 className="text-2xl font-black uppercase italic">Vista Táctica</h3>
-              <div className="aspect-video bg-black rounded-[1rem] overflow-hidden shadow-2xl"><img src={previewUrl} className="w-full h-full object-cover" alt="Preview" /></div>
+              <div className="aspect-video bg-black rounded-[1rem] overflow-hidden shadow-2xl flex items-center justify-center">
+                {/\.(mp4|webm|ogg)$/i.test(previewUrl || '') ? (
+                  <video src={previewUrl || ''} className="w-full h-full object-contain" controls autoPlay muted />
+                ) : (
+                  <img src={previewUrl || ''} className="w-full h-full object-contain" alt="Preview" />
+                )}
+              </div>
             </div>
           </div>
         )}

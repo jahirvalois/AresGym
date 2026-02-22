@@ -45,11 +45,12 @@
         // Expose the values to runtime via window for components that may not get import.meta.env
         // These are temporary debug aids.
         // eslint-disable-next-line no-undef
-        window.__VITE_GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
         window.__VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
         // expose social-only flag to runtime too
         window.__VITE_SOCIAL_ONLY_LOGIN = import.meta.env.VITE_SOCIAL_ONLY_LOGIN;
+        window.__VITE_GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
         window.__VITE_MICROSOFT_CLIENT_ID = import.meta.env.VITE_MICROSOFT_CLIENT_ID;
+        window.__VITE_APPLE_CLIENT_ID = import.meta.env.VITE_APPLE_CLIENT_ID;
         // Fallback in case import.meta.env wasn't injected by Vite in modules
         window.__VITE_API_BASE_URL = window.__VITE_API_BASE_URL || 'http://localhost:8081';
         // debug info removed for production
@@ -61,4 +62,5 @@
   <script type="module" src="/index.tsx"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://alcdn.msauth.net/browser/2.28.1/js/msal-browser.min.js" async defer></script>
+  <script src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js" async defer></script>
 </html>

@@ -169,6 +169,37 @@ const App: React.FC = () => {
     }
   };
 
+  const appleClientId = ((import.meta as any)?.env?.VITE_APPLE_CLIENT_ID) || (window as any).__VITE_APPLE_CLIENT_ID;
+
+  const signInApple = async () => {
+    if (!appleClientId) return console.warn('Apple Client ID not configured');
+    const win: any = window as any;
+    if (!win.AppleID || !win.AppleID.auth) {
+      console.warn('AppleID JS SDK not loaded');
+      return;
+    }
+    try {
+      win.AppleID.auth.init({ clientId: appleClientId, scope: 'name email', redirectURI: window.location.origin, usePopup: true });
+      const resp = await win.AppleID.auth.signIn();
+      const idToken = resp && resp.authorization && resp.authorization.id_token;
+      if (!idToken) return console.warn('No id_token from Apple sign-in');
+      apiService.socialLogin('apple', idToken).then((res: any) => {
+        const u = res.user || res;
+        if (u) {
+          const normalized = (u.id || u._id) ? ({ ...u, id: String(u.id || u._id) }) : u;
+          if (normalized.status && normalized.status !== 'ACTIVE') {
+            setPopup({ open: true, type: 'warning', title: 'Cuenta inactiva', message: 'Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.' });
+            return;
+          }
+          localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+          setUser(normalized);
+        }
+      }).catch(() => {});
+    } catch (e) {
+      console.warn('Apple sign-in failed', e);
+    }
+  };
+
   useEffect(() => {
     const url = new URL(window.location.href);
     const token = url.searchParams.get('token');
@@ -405,29 +436,24 @@ const App: React.FC = () => {
                     <div id="googleSignInDiv" className="sr-only" aria-hidden></div>
                     <button type="button" onClick={signInGoogle} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-white text-slate-800 border border-slate-200 rounded-md font-bold text-sm shadow-sm hover:shadow-md">
                       <span className="w-5 h-5 inline-block" aria-hidden>
-                        <svg viewBox="0 0 46 46" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                          <defs></defs>
-                          <g>
-                            <path d="M23 9.5c3.7 0 6.4 1.2 8.3 2.3l6.1-6.1C34.7 1.9 29.3 0 23 0 14.6 0 7.4 3.9 3.2 9.8l7.1 5.5C12.7 10.8 17.5 9.5 23 9.5z" fill="#EA4335"/>
-                            <path d="M44.5 23c0-1.6-.1-2.9-.4-4.2H23v8.1h12.2c-.5 2.6-2.2 5-4.7 6.6l7.3 5.7C42.6 35.1 44.5 29.7 44.5 23z" fill="#4285F4"/>
-                            <path d="M10.3 27.8A13.7 13.7 0 0 1 9 23c0-1.9.4-3.7 1.1-5.3L3 12.1A23 23 0 0 0 0 23c0 3.8.9 7.4 2.6 10.6l7.7-5.8z" fill="#FBBC05"/>
-                            <path d="M23 46c6.3 0 11.7-1.9 15.9-5.2l-7.7-6.1c-2.2 1.5-5 2.4-8.2 2.4-5.5 0-10.2-2.3-13.7-5.9L3.2 36.2C7.4 42.1 14.6 46 23 46z" fill="#34A853"/>
-                          </g>
-                        </svg>
+                        <img src="/images/google-icon-logo.png" alt="Google" className="w-full h-full object-contain" />
                       </span>
                       <span>Sign in with Google</span>
                     </button>
                       <button type="button" onClick={signInMicrosoft} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-[#2F2F2F] text-white px-4 rounded-md font-bold text-sm shadow-md hover:opacity-90">
                         <span className="w-5 h-5 inline-block" aria-hidden>
-                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                            <rect x="1" y="1" width="10" height="10" fill="#f35325" />
-                            <rect x="13" y="1" width="10" height="10" fill="#81bc06" />
-                            <rect x="1" y="13" width="10" height="10" fill="#05a6f0" />
-                            <rect x="13" y="13" width="10" height="10" fill="#ffba00" />
-                          </svg>
+                          <img src="/images/microsoft-icon-logo.png" alt="Microsoft" className="w-full h-full object-contain" />
                         </span>
                         <span>Sign in with Microsoft</span>
+                      </button> 
+                      {/*
+                      <button type="button" onClick={signInApple} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-black text-white px-4 rounded-md font-bold text-sm shadow-md hover:opacity-90">
+                        <span className="w-5 h-5 inline-block" aria-hidden>
+                          <img src="/images/apple-icon-logo-png.png" alt="Apple" className="w-full h-full object-contain" />
+                        </span>
+                        <span>Sign in with Apple</span>
                       </button>
+                      */}
                   </div>
                   <div className="text-center">
                     <button type="button" onClick={() => setShowEmailForm(true)} className="mt-4 text-[8px] font-black uppercase italic text-primary hover:text-black">Iniciar con email</button>
@@ -436,7 +462,7 @@ const App: React.FC = () => {
               ) : (
                 <form onSubmit={handleLogin} className="space-y-6">
                   <input type="email" className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 bg-slate-50 outline-none font-bold text-sm" placeholder="Email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
-                  <input type="password" className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 bg-slate-50 outline-none font-bold text-sm" placeholder="Contraseña" value={loginPass} onChange={e => setLoginPass(e.target.value)} required />
+                  <input type="password" className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 bg-slate-50 outline-none font-bold text-sm" placeholder="Password" value={loginPass} onChange={e => setLoginPass(e.target.value)} required />
                   <div className="text-right">
                      <button type="button" onClick={() => setAuthView('forgot-password')} className="text-[10px] font-black uppercase italic text-primary hover:text-black">¿Olvidaste tu contraseña?</button>
                   </div>
@@ -451,29 +477,24 @@ const App: React.FC = () => {
                       <div id="googleSignInDiv" className="sr-only" aria-hidden></div>
                       <button type="button" onClick={signInGoogle} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-white text-slate-800 border border-slate-200 rounded-md font-bold text-sm shadow-sm hover:shadow-md">
                         <span className="w-5 h-5 inline-block" aria-hidden>
-                          <svg viewBox="0 0 46 46" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                            <defs></defs>
-                            <g>
-                              <path d="M23 9.5c3.7 0 6.4 1.2 8.3 2.3l6.1-6.1C34.7 1.9 29.3 0 23 0 14.6 0 7.4 3.9 3.2 9.8l7.1 5.5C12.7 10.8 17.5 9.5 23 9.5z" fill="#EA4335"/>
-                              <path d="M44.5 23c0-1.6-.1-2.9-.4-4.2H23v8.1h12.2c-.5 2.6-2.2 5-4.7 6.6l7.3 5.7C42.6 35.1 44.5 29.7 44.5 23z" fill="#4285F4"/>
-                              <path d="M10.3 27.8A13.7 13.7 0 0 1 9 23c0-1.9.4-3.7 1.1-5.3L3 12.1A23 23 0 0 0 0 23c0 3.8.9 7.4 2.6 10.6l7.7-5.8z" fill="#FBBC05"/>
-                              <path d="M23 46c6.3 0 11.7-1.9 15.9-5.2l-7.7-6.1c-2.2 1.5-5 2.4-8.2 2.4-5.5 0-10.2-2.3-13.7-5.9L3.2 36.2C7.4 42.1 14.6 46 23 46z" fill="#34A853"/>
-                            </g>
-                          </svg>
+                          <img src="/images/google-icon-logo.png" alt="Google" className="w-full h-full object-contain" />
                         </span>
                         <span>Sign in with Google</span>
                       </button>
                       <button type="button" onClick={signInMicrosoft} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-[#2F2F2F] text-white px-4 rounded-md font-bold text-sm shadow-md hover:opacity-90">
                         <span className="w-5 h-5 inline-block" aria-hidden>
-                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                            <rect x="1" y="1" width="10" height="10" fill="#f35325" />
-                            <rect x="13" y="1" width="10" height="10" fill="#81bc06" />
-                            <rect x="1" y="13" width="10" height="10" fill="#05a6f0" />
-                            <rect x="13" y="13" width="10" height="10" fill="#ffba00" />
-                          </svg>
+                          <img src="/images/microsoft-icon-logo.png" alt="Microsoft" className="w-full h-full object-contain" />
                         </span>
                         <span>Sign in with Microsoft</span>
                       </button>
+                      {/*
+                      <button type="button" onClick={signInApple} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-black text-white px-4 rounded-md font-bold text-sm shadow-md hover:opacity-90">
+                        <span className="w-5 h-5 inline-block" aria-hidden>
+                          <img src="/images/apple-icon-logo-png.png" alt="Apple" className="w-full h-full object-contain" />
+                        </span>
+                        <span>Sign in with Apple</span>
+                      </button>
+                      */}
                     </div>
                   )}
                 </form>

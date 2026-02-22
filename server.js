@@ -450,6 +450,35 @@ app.post('/api/auth/social-login', async (req, res) => {
       }
     }
 
+    if (provider === 'apple' && idToken) {
+      try {
+        const parsed = parseJwt(idToken);
+        if (!parsed) return res.status(401).json({ error: 'Invalid Apple token' });
+        const expectedAud = process.env.APPLE_CLIENT_ID || process.env.VITE_APPLE_CLIENT_ID;
+        if (expectedAud && parsed.aud && parsed.aud !== expectedAud) {
+          return res.status(401).json({ error: 'Invalid Apple token audience' });
+        }
+        // Apple may not always include email on subsequent sign-ins; prefer token email, fallback to body
+        const tokenEmail = parsed.email || email;
+        if (!tokenEmail) return res.status(401).json({ error: 'Apple token missing email' });
+        normalizedEmail = normalizeEmail(String(tokenEmail));
+        finalProviderId = parsed.sub || finalProviderId;
+        resolvedName = (name && name.trim()) ? name : (parsed.name || undefined);
+      } catch (e) {
+        console.error('apple token verify failed', e);
+        try {
+          const logDir = path.join(__dirname, 'data');
+          if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+          const logFile = path.join(logDir, 'social_login_error.log');
+          const msg = `${new Date().toISOString()} - ${e && e.stack ? e.stack : String(e)}\n`;
+          fs.appendFileSync(logFile, msg);
+        } catch (ee) {
+          console.warn('Failed to write social login error log', ee);
+        }
+        return res.status(500).json({ error: 'Failed to verify Apple token' });
+      }
+    }
+
     if (!normalizedEmail && (!providerId || !email)) {
       return res.status(400).json({ error: 'providerId and email are required' });
     }

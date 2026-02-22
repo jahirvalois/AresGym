@@ -384,10 +384,15 @@ export const apiService = {
   async socialLogin(...args: any[]) {
     // Args: (provider, providerIdOrIdToken, email?, name?, avatar?)
     const [provider, providerIdOrIdToken, email, name, avatar] = args;
-    const isIdToken = typeof providerIdOrIdToken === 'string' && providerIdOrIdToken.split('.').length === 3;
     const payload: any = { provider };
-    if (isIdToken) payload.idToken = providerIdOrIdToken;
-    else payload.providerId = providerIdOrIdToken;
+    // For Microsoft we prefer to send an accessToken (Graph) for server-side verification
+    if (provider === 'microsoft') {
+      payload.accessToken = providerIdOrIdToken;
+    } else {
+      const isIdToken = typeof providerIdOrIdToken === 'string' && providerIdOrIdToken.split('.').length === 3;
+      if (isIdToken) payload.idToken = providerIdOrIdToken;
+      else payload.providerId = providerIdOrIdToken;
+    }
     if (email) payload.email = email;
     if (name) payload.name = name;
     if (avatar) payload.avatar = avatar;

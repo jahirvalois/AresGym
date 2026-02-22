@@ -29,6 +29,7 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_SOCIAL_ONLY_LOGIN: ${{ secrets.VITE_SOCIAL_ONLY_LOGIN }}
+          VITE_MICROSOFT_CLIENT_ID: ${{ secrets.VITE_MICROSOFT_CLIENT_ID }}
         run: |
           npm install
           npm run build
@@ -90,7 +91,8 @@ jobs:
               WEBSITE_NODE_DEFAULT_VERSION="24" \
               VITE_GOOGLE_CLIENT_ID="${{ secrets.VITE_GOOGLE_CLIENT_ID }}" \
               VITE_API_BASE_URL="${{ secrets.VITE_API_BASE_URL }}" \
-              VITE_SOCIAL_ONLY_LOGIN="${{ secrets.VITE_SOCIAL_ONLY_LOGIN }}"
+              VITE_SOCIAL_ONLY_LOGIN="${{ secrets.VITE_SOCIAL_ONLY_LOGIN }}" \
+              VITE_MICROSOFT_CLIENT_ID="${{ secrets.VITE_MICROSOFT_CLIENT_ID }}"
       
       - name: Restart Azure Web App
         run: |

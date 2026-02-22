@@ -382,7 +382,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 // Auth - Social Login (Google)
 app.post('/api/auth/social-login', async (req, res) => {
   try {
-    let { provider, idToken, providerId, email, name, avatar } = req.body;
+    let { provider, idToken, providerId, accessToken, email, name, avatar } = req.body;
     let resolvedName;
     let resolvedAvatar;
     if (!provider) return res.status(400).json({ error: 'provider is required' });
@@ -419,6 +419,34 @@ app.post('/api/auth/social-login', async (req, res) => {
           console.warn('Failed to write social login error log', ee);
         }
         return res.status(500).json({ error: 'Failed to verify Google token' });
+      }
+    }
+
+    if (provider === 'microsoft' && accessToken) {
+      try {
+        const resp = await fetch('https://graph.microsoft.com/v1.0/me', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!resp.ok) return res.status(401).json({ error: 'Invalid Microsoft token' });
+        const profile = await resp.json();
+        const expectedEmail = profile.mail || profile.userPrincipalName;
+        if (!expectedEmail) return res.status(401).json({ error: 'Microsoft account has no email' });
+        normalizedEmail = normalizeEmail(String(expectedEmail));
+        finalProviderId = profile.id || finalProviderId;
+        resolvedName = (name && name.trim()) ? name : (profile.displayName || undefined);
+        // profile photo requires additional Graph call; skip for now
+      } catch (e) {
+        console.error('microsoft token verify failed', e);
+        try {
+          const logDir = path.join(__dirname, 'data');
+          if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+          const logFile = path.join(logDir, 'social_login_error.log');
+          const msg = `${new Date().toISOString()} - ${e && e.stack ? e.stack : String(e)}\n`;
+          fs.appendFileSync(logFile, msg);
+        } catch (ee) {
+          console.warn('Failed to write social login error log', ee);
+        }
+        return res.status(500).json({ error: 'Failed to verify Microsoft token' });
       }
     }
 

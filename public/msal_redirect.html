@@ -10,50 +10,85 @@
     <script>
       (function(){
         try {
-          const clientId = window.__VITE_MICROSOFT_CLIENT_ID || '';
           const redirectUri = window.location.origin + '/msal_redirect.html';
-          if (!clientId) {
-            window.opener.postMessage({ type: 'msal_error', error: 'missing_client_id' }, window.location.origin);
-            window.close();
+          // Try to get clientId from injected runtime var or query param
+          let clientId = (window.__VITE_MICROSOFT_CLIENT_ID || '') || (new URLSearchParams(location.search).get('clientId') || '');
+
+          const initWithClientId = (cid) => {
+            try {
+              const pca = new msal.PublicClientApplication({ auth: { clientId: cid, redirectUri } });
+              pca.handleRedirectPromise().then(async (resp) => {
+                try {
+                  const accounts = pca.getAllAccounts();
+                  const account = resp?.account || (accounts && accounts[0]);
+                  if (!account) {
+                    window.opener?.postMessage({ type: 'msal_error', error: 'no_account' }, window.location.origin);
+                    window.close();
+                    return;
+                  }
+                  try {
+                    const tokenResp = await pca.acquireTokenSilent({ scopes: ['User.Read'], account });
+                    window.opener?.postMessage({ type: 'msal_auth', accessToken: tokenResp.accessToken }, window.location.origin);
+                    window.close();
+                    return;
+                  } catch (e) {
+                    try {
+                      const popupResp = await pca.acquireTokenPopup({ scopes: ['User.Read'], account });
+                      window.opener?.postMessage({ type: 'msal_auth', accessToken: popupResp.accessToken }, window.location.origin);
+                      window.close();
+                      return;
+                    } catch (err2) {
+                      window.opener?.postMessage({ type: 'msal_error', error: String(err2) }, window.location.origin);
+                      window.close();
+                      return;
+                    }
+                  }
+                } catch (err) {
+                  window.opener?.postMessage({ type: 'msal_error', error: String(err) }, window.location.origin);
+                  window.close();
+                }
+              }).catch((err) => {
+                window.opener?.postMessage({ type: 'msal_error', error: String(err) }, window.location.origin);
+                window.close();
+              });
+            } catch (e) {
+              window.opener?.postMessage({ type: 'msal_error', error: String(e) }, window.location.origin);
+              try { window.close(); } catch(_){}
+            }
+          };
+
+          if (clientId) {
+            initWithClientId(clientId);
             return;
           }
-          const pca = new msal.PublicClientApplication({ auth: { clientId, redirectUri } });
-          pca.handleRedirectPromise().then(async (resp) => {
-            try {
-              const accounts = pca.getAllAccounts();
-              const account = resp?.account || (accounts && accounts[0]);
-              if (!account) {
-                window.opener.postMessage({ type: 'msal_error', error: 'no_account' }, window.location.origin);
-                window.close();
-                return;
-              }
+
+          // If clientId not available, request it from opener (main app)
+          if (window.opener && window.opener !== window) {
+            // listen for response
+            const recv = (ev) => {
               try {
-                const tokenResp = await pca.acquireTokenSilent({ scopes: ['User.Read'], account });
-                window.opener.postMessage({ type: 'msal_auth', accessToken: tokenResp.accessToken }, window.location.origin);
-                window.close();
-                return;
-              } catch (e) {
-                try {
-                  const popupResp = await pca.acquireTokenPopup({ scopes: ['User.Read'], account });
-                  window.opener.postMessage({ type: 'msal_auth', accessToken: popupResp.accessToken }, window.location.origin);
-                  window.close();
-                  return;
-                } catch (err2) {
-                  window.opener.postMessage({ type: 'msal_error', error: String(err2) }, window.location.origin);
-                  window.close();
-                  return;
+                if (ev.origin !== window.location.origin) return;
+                const d = ev.data || {};
+                if (d.type === 'msal_client_id' && d.clientId) {
+                  window.removeEventListener('message', recv);
+                  initWithClientId(d.clientId);
                 }
-              }
-            } catch (err) {
-              window.opener.postMessage({ type: 'msal_error', error: String(err) }, window.location.origin);
-              window.close();
+              } catch (e) {}
+            };
+            window.addEventListener('message', recv);
+            // request the client id
+            try { window.opener.postMessage({ type: 'msal_request_client_id' }, window.location.origin); } catch (e) {
+              window.opener?.postMessage({ type: 'msal_error', error: 'missing_client_id' }, window.location.origin);
+              try { window.close(); } catch(_){}
             }
-          }).catch((err) => {
-            window.opener.postMessage({ type: 'msal_error', error: String(err) }, window.location.origin);
-            window.close();
-          });
+            // timeout after 25s
+            setTimeout(() => { try { window.removeEventListener('message', recv); } catch(_){}; try { window.close(); } catch(_){}; }, 25000);
+          } else {
+            window.opener?.postMessage({ type: 'msal_error', error: 'missing_client_id' }, window.location.origin);
+            try { window.close(); } catch(_){}
+          }
         } catch (e) {
-          try { window.opener.postMessage({ type: 'msal_error', error: String(e) }, window.location.origin); } catch(_){}
+          try { window.opener?.postMessage({ type: 'msal_error', error: String(e) }, window.location.origin); } catch(_){}
           try { window.close(); } catch(_){}
         }
       })();

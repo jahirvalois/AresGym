@@ -134,6 +134,15 @@ const App: React.FC = () => {
         console.debug('[App] msal message received', e.origin, (e as any).data);
         if (e.origin !== window.location.origin) return;
         const data = (e as any).data || {};
+        // Respond to redirect handler requests for client id
+        if (data.type === 'msal_request_client_id') {
+          try {
+            const target = (e.source as Window) || window;
+            const payload = { type: 'msal_client_id', clientId: msClientId };
+            try { target.postMessage(payload, e.origin); } catch (err) { window.postMessage(payload, e.origin); }
+          } catch (err) { console.warn('Failed to respond with msal client id', err); }
+          return;
+        }
         if (data.type === 'msal_auth' && data.accessToken) {
           // received token from redirect handler
           const accessToken = data.accessToken as string;

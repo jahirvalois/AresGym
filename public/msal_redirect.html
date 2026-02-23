@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>MSAL Redirect Handler</title>
+  </head>
+  <body>
+    <p>Processing sign-in...</p>
+    <script src="https://alcdn.msauth.net/browser/2.28.1/js/msal-browser.min.js"></script>
+    <script>
+      (function(){
+        try {
+          const clientId = window.__VITE_MICROSOFT_CLIENT_ID || '';
+          const redirectUri = window.location.origin + '/msal_redirect.html';
+          if (!clientId) {
+            window.opener.postMessage({ type: 'msal_error', error: 'missing_client_id' }, window.location.origin);
+            window.close();
+            return;
+          }
+          const pca = new msal.PublicClientApplication({ auth: { clientId, redirectUri } });
+          pca.handleRedirectPromise().then(async (resp) => {
+            try {
+              const accounts = pca.getAllAccounts();
+              const account = resp?.account || (accounts && accounts[0]);
+              if (!account) {
+                window.opener.postMessage({ type: 'msal_error', error: 'no_account' }, window.location.origin);
+                window.close();
+                return;
+              }
+              try {
+                const tokenResp = await pca.acquireTokenSilent({ scopes: ['User.Read'], account });
+                window.opener.postMessage({ type: 'msal_auth', accessToken: tokenResp.accessToken }, window.location.origin);
+                window.close();
+                return;
+              } catch (e) {
+                try {
+                  const popupResp = await pca.acquireTokenPopup({ scopes: ['User.Read'], account });
+                  window.opener.postMessage({ type: 'msal_auth', accessToken: popupResp.accessToken }, window.location.origin);
+                  window.close();
+                  return;
+                } catch (err2) {
+                  window.opener.postMessage({ type: 'msal_error', error: String(err2) }, window.location.origin);
+                  window.close();
+                  return;
+                }
+              }
+            } catch (err) {
+              window.opener.postMessage({ type: 'msal_error', error: String(err) }, window.location.origin);
+              window.close();
+            }
+          }).catch((err) => {
+            window.opener.postMessage({ type: 'msal_error', error: String(err) }, window.location.origin);
+            window.close();
+          });
+        } catch (e) {
+          try { window.opener.postMessage({ type: 'msal_error', error: String(e) }, window.location.origin); } catch(_){}
+          try { window.close(); } catch(_){}
+        }
+      })();
+    </script>
+  </body>
+</html>

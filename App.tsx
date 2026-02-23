@@ -126,33 +126,84 @@ const App: React.FC = () => {
       console.warn('MSAL not loaded');
       return;
     }
-    try {
-      const pca = new win.msal.PublicClientApplication({ auth: { clientId: msClientId, redirectUri: window.location.origin } });
-      const loginResp = await pca.loginPopup({ scopes: ['openid', 'profile', 'User.Read'] });
-      const account = loginResp?.account;
-      let tokenResp;
+    // use a dedicated redirect page so that MSAL responses are handled there and posted back
+    const redirectUri = window.location.origin + '/msal_redirect.html';
+    let removedListener = false;
+    const messageHandler = (e: MessageEvent) => {
       try {
-        tokenResp = await pca.acquireTokenSilent({ scopes: ['User.Read'], account });
-      } catch (e) {
-        tokenResp = await pca.acquireTokenPopup({ scopes: ['User.Read'] });
-      }
-      const accessToken = tokenResp && tokenResp.accessToken;
-      if (!accessToken) return console.warn('No access token from Microsoft sign-in');
-
-      apiService.socialLogin('microsoft', accessToken).then((res: any) => {
-        const u = res.user || res;
-        if (u) {
-          const normalized = (u.id || u._id) ? ({ ...u, id: String(u.id || u._id) }) : u;
-          if (normalized.status && normalized.status !== 'ACTIVE') {
-            setPopup({ open: true, type: 'warning', title: 'Cuenta inactiva', message: 'Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.' });
-            return;
-          }
-          localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
-          setUser(normalized);
+        console.debug('[App] msal message received', e.origin, (e as any).data);
+        if (e.origin !== window.location.origin) return;
+        const data = (e as any).data || {};
+        if (data.type === 'msal_auth' && data.accessToken) {
+          // received token from redirect handler
+          const accessToken = data.accessToken as string;
+          apiService.socialLogin('microsoft', accessToken).then((res: any) => {
+            const u = res.user || res;
+            if (u) {
+              const normalized = (u.id || u._id) ? ({ ...u, id: String(u.id || u._id) }) : u;
+              if (normalized.status && normalized.status !== 'ACTIVE') {
+                setPopup({ open: true, type: 'warning', title: 'Cuenta inactiva', message: 'Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.' });
+                return;
+              }
+              localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+              setUser(normalized);
+            }
+          }).catch(() => {});
+          if (!removedListener) { window.removeEventListener('message', messageHandler); removedListener = true; }
+        } else if (data.type === 'msal_error') {
+          console.warn('MSAL redirect handler reported error', data.error);
+          if (!removedListener) { window.removeEventListener('message', messageHandler); removedListener = true; }
         }
-      }).catch(() => {});
+      } catch (err) {
+        console.warn('msal message handler error', err);
+      }
+    };
+
+    window.addEventListener('message', messageHandler);
+
+    try {
+      const pca = new win.msal.PublicClientApplication({ auth: { clientId: msClientId, redirectUri } });
+      // Attempt popup flow first; if MSAL ends up redirecting the popup to our redirect page,
+      // the `msal_redirect.html` will postMessage back with the token and our listener will handle it.
+      try {
+        const loginResp = await pca.loginPopup({ scopes: ['openid', 'profile', 'User.Read'] });
+        const account = loginResp?.account;
+        let tokenResp;
+        try {
+          tokenResp = await pca.acquireTokenSilent({ scopes: ['User.Read'], account });
+        } catch (e) {
+          tokenResp = await pca.acquireTokenPopup({ scopes: ['User.Read'] });
+        }
+        const accessToken = tokenResp && tokenResp.accessToken;
+        if (accessToken) {
+          // cleanup listener
+          if (!removedListener) { window.removeEventListener('message', messageHandler); removedListener = true; }
+          apiService.socialLogin('microsoft', accessToken).then((res: any) => {
+            const u = res.user || res;
+            if (u) {
+              const normalized = (u.id || u._id) ? ({ ...u, id: String(u.id || u._id) }) : u;
+              if (normalized.status && normalized.status !== 'ACTIVE') {
+                setPopup({ open: true, type: 'warning', title: 'Cuenta inactiva', message: 'Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.' });
+                return;
+              }
+              localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+              setUser(normalized);
+            }
+          }).catch(() => {});
+          return;
+        }
+      } catch (e) {
+        // loginPopup may fail in some environments; rely on redirect handler message as fallback
+        console.warn('MSAL loginPopup failed or redirected; waiting for redirect handler message', e);
+      }
+
+      // fallback: open a window that triggers redirect flow which will be handled by msal_redirect.html
+      const popup = window.open('/msal_redirect.html', 'msal_popup', 'width=600,height=700');
+      // remove listener after 35s if nothing arrives
+      setTimeout(() => { if (!removedListener) { window.removeEventListener('message', messageHandler); removedListener = true; } }, 35000);
     } catch (e) {
       console.warn('Microsoft sign-in failed', e);
+      if (!removedListener) { window.removeEventListener('message', messageHandler); removedListener = true; }
     }
   };
 

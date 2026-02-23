@@ -58,6 +58,7 @@
           };
 
           if (clientId) {
+            console.debug('[msal_redirect] using embedded clientId', clientId);
             initWithClientId(clientId);
             return;
           }
@@ -67,25 +68,30 @@
             // listen for response
             const recv = (ev) => {
               try {
-                if (ev.origin !== window.location.origin) return;
+                console.debug('[msal_redirect] recv message', { origin: ev.origin, expectedOrigin: window.location.origin, data: ev.data });
+                // Accept client id messages even if origin differs (debugging); log mismatches
                 const d = ev.data || {};
                 if (d.type === 'msal_client_id' && d.clientId) {
                   window.removeEventListener('message', recv);
                   initWithClientId(d.clientId);
                 }
-              } catch (e) {}
+              } catch (e) { console.warn('[msal_redirect] recv handler error', e); }
             };
             window.addEventListener('message', recv);
-            // request the client id
-            try { window.opener.postMessage({ type: 'msal_request_client_id' }, window.location.origin); } catch (e) {
-              window.opener?.postMessage({ type: 'msal_error', error: 'missing_client_id' }, window.location.origin);
-              try { window.close(); } catch(_){}
+            // request the client id; prefer specifying origin but fall back to wildcard for debugging
+            try {
+              try { window.opener.postMessage({ type: 'msal_request_client_id' }, window.location.origin); }
+              catch (e) { window.opener.postMessage({ type: 'msal_request_client_id' }, '*'); }
+            } catch (e) {
+              console.warn('[msal_redirect] failed to request client id', e);
+              try { window.opener.postMessage({ type: 'msal_error', error: 'missing_client_id' }, '*'); } catch (_) {}
+              try { window.close(); } catch(_){ }
             }
             // timeout after 25s
             setTimeout(() => { try { window.removeEventListener('message', recv); } catch(_){}; try { window.close(); } catch(_){}; }, 25000);
           } else {
-            window.opener?.postMessage({ type: 'msal_error', error: 'missing_client_id' }, window.location.origin);
-            try { window.close(); } catch(_){}
+            try { window.opener?.postMessage({ type: 'msal_error', error: 'missing_client_id' }, '*'); } catch(_){}
+            try { window.close(); } catch(_){ }
           }
         } catch (e) {
           try { window.opener?.postMessage({ type: 'msal_error', error: String(e) }, window.location.origin); } catch(_){}

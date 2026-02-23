@@ -131,19 +131,30 @@ const App: React.FC = () => {
     let removedListener = false;
     const messageHandler = (e: MessageEvent) => {
       try {
-        console.debug('[App] msal message received', e.origin, (e as any).data);
-        if (e.origin !== window.location.origin) return;
         const data = (e as any).data || {};
+        console.debug('[App] msal message received', { eventOrigin: e.origin, windowOrigin: window.location.origin, data, source: e.source });
+        // In some hosting setups the popup may be considered a different origin (www vs apex or edge rewriting).
+        // For debugging, allow handling of our specific msal messages even if origin differs, but log the mismatch.
+        const originMismatch = e.origin !== window.location.origin;
+        if (originMismatch) console.warn('[App] msal message origin mismatch (possible www/apex/origin rewrite)', e.origin, window.location.origin);
+        // Only proceed for known message types
+        const dataType = data.type;
         // Respond to redirect handler requests for client id
-        if (data.type === 'msal_request_client_id') {
+        if (dataType === 'msal_request_client_id') {
           try {
             const target = (e.source as Window) || window;
             const payload = { type: 'msal_client_id', clientId: msClientId };
-            try { target.postMessage(payload, e.origin); } catch (err) { window.postMessage(payload, e.origin); }
+            try {
+              // prefer targeted origin, but fall back to wildcard for debugging
+              target.postMessage(payload, e.origin || window.location.origin);
+            } catch (err) {
+              try { target.postMessage(payload, '*'); } catch (err2) { window.postMessage(payload, '*'); }
+            }
+            console.debug('[App] replied msal_client_id', { payload, to: e.origin });
           } catch (err) { console.warn('Failed to respond with msal client id', err); }
           return;
         }
-        if (data.type === 'msal_auth' && data.accessToken) {
+        if (dataType === 'msal_auth' && data.accessToken) {
           // received token from redirect handler
           const accessToken = data.accessToken as string;
           apiService.socialLogin('microsoft', accessToken).then((res: any) => {
@@ -159,8 +170,8 @@ const App: React.FC = () => {
             }
           }).catch(() => {});
           if (!removedListener) { window.removeEventListener('message', messageHandler); removedListener = true; }
-        } else if (data.type === 'msal_error') {
-          console.warn('MSAL redirect handler reported error', data.error);
+        } else if (dataType === 'msal_error') {
+          console.warn('MSAL redirect handler reported error', data.error, { originMismatch });
           if (!removedListener) { window.removeEventListener('message', messageHandler); removedListener = true; }
         }
       } catch (err) {

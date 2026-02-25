@@ -57,8 +57,21 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     name: '', 
     email: '', 
     role: UserRole.USER, 
-    subEnd: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0] 
+    subEnd: (() => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 1);
+      d.setHours(12, 0, 0, 0); // default to midday local
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    })()
   });
+
+  const toLocalDatetimeInput = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
 
   // Arsenal (animations) search + pagination
   const [arsenalQuery, setArsenalQuery] = useState('');
@@ -130,7 +143,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
-        subscriptionEndDate: newUser.role === UserRole.USER ? new Date(newUser.subEnd).toISOString() : '2050-12-31T23:59:59.000Z'
+        subscriptionEndDate: newUser.role === UserRole.USER ? (newUser.subEnd ? new Date(newUser.subEnd).toISOString() : '') : '2050-12-31T23:59:59.000Z'
       });
       setNotification({ type: 'success', message: 'Guerrero reclutado e invitacion enviada.' });
       setNewUser({ ...newUser, name: '', email: '' });
@@ -384,7 +397,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
               <option value={UserRole.COACH}>Mentor</option>
               <option value={UserRole.ADMIN}>Rey</option>
             </select>
-            <input type="date" className="bg-slate-50 p-3 rounded-xl font-bold" value={newUser.subEnd} onChange={e => setNewUser({...newUser, subEnd: e.target.value})} disabled={newUser.role !== UserRole.USER} />
+            <input type="datetime-local" className="bg-slate-50 p-3 rounded-xl font-bold" value={newUser.subEnd} onChange={e => setNewUser({...newUser, subEnd: e.target.value})} disabled={newUser.role !== UserRole.USER} />
             <button className="bg-primary text-black border-2 border-primary font-black uppercase italic px-6 py-3 rounded-xl shadow-lg hover:bg-black hover:text-yellow-400 hover:border-yellow-400 transition-all">Reclutar</button>
           </form>
         </section>
@@ -493,9 +506,9 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                 </select>
                 {editingUser.role === UserRole.USER && (
                   <input
-                    type="date"
+                    type="datetime-local"
                     className="w-full bg-slate-50 p-3 rounded-xl font-bold"
-                    value={editingUser.subscriptionEndDate ? editingUser.subscriptionEndDate.split('T')[0] : ''}
+                    value={editingUser.subscriptionEndDate ? toLocalDatetimeInput(editingUser.subscriptionEndDate) : ''}
                     onChange={e => setEditingUser({...editingUser, subscriptionEndDate: e.target.value ? new Date(e.target.value).toISOString() : ''})}
                   />
                 )}

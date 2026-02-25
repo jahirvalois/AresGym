@@ -183,7 +183,8 @@ export const apiService = {
     const now = Date.now();
     const diffDays = (end - now) / (1000 * 60 * 60 * 24);
     if (now > end) return { state: SubscriptionState.EXPIRED, message: 'Tu suscripción ha expirado.' };
-    if (diffDays <= 3) return { state: SubscriptionState.WARNING, message: `Vence en ${Math.ceil(diffDays)} días.` };
+    // Cambio: advertir cuando falten 2 días o menos
+    if (diffDays <= 2) return { state: SubscriptionState.WARNING, message: `Vence en ${Math.ceil(diffDays)} días.` };
     return { state: SubscriptionState.OK, message: null };
   },
 

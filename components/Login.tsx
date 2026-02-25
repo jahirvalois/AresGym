@@ -28,6 +28,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
       // Store user data (could be in context, localStorage, etc.)
       localStorage.setItem('user', JSON.stringify(response.user));
+      // Mostrar en consola el estado de suscripción (dato tomado desde la DB)
+      try {
+        apiService.getSubscriptionState(response.user).then(sub => console.info('[Ares] Subscription state after login component:', sub.state, sub.message || '')).catch(() => {});
+      } catch (e) {
+        // ignore
+      }
       
       setEmail('');
       setPassword('');

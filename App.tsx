@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import googleIcon from './images/google-icon-logo.png';
 // import appleIcon from './images/apple-icon-logo-png.png';
 import microsoftIcon from './images/microsoft-icon-logo.png';
@@ -45,6 +45,19 @@ const App: React.FC = () => {
   const [popup, setPopup] = useState<{ open: boolean; type?: 'success' | 'warning'; title?: string; message: string }>({ open: false, message: '' });
 
   const [settings, setSettings] = useState(brandingService.getSettings());
+  const errorTimeoutRef = useRef<number | null>(null);
+
+  const showTempError = (message: string, isBlocking: boolean) => {
+    try {
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+        errorTimeoutRef.current = null;
+      }
+    } catch (e) {}
+    setError({ message, isBlocking });
+    // clear after 5s
+    errorTimeoutRef.current = window.setTimeout(() => setError(null), 5000);
+  };
 
   useEffect(() => {
     // Inicialización silenciosa para evitar bloqueos
@@ -102,8 +115,25 @@ const App: React.FC = () => {
                   setPopup({ open: true, type: 'warning', title: 'Cuenta inactiva', message: 'Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.' });
                   return;
                 }
-                localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
-                setUser(normalized);
+                // Verificar estado de suscripción desde la DB y bloquear si está expirado
+                apiService.getSubscriptionState(normalized).then(sub => {
+                  if (sub.state === SubscriptionState.EXPIRED) {
+                    showTempError(sub.message || 'Tu suscripción ha expirado.', true);
+                    return;
+                  }
+                  if (sub.state === SubscriptionState.WARNING) {
+                    showTempError(sub.message || '', false);
+                  } else {
+                    setError(null);
+                  }
+                  localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+                  setUser(normalized);
+                }).catch(() => {
+                  // Si falla la verificación remota, permitir login y limpiar errores
+                  setError(null);
+                  localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+                  setUser(normalized);
+                });
               }
             }).catch(() => {});
           } catch (e) {
@@ -159,14 +189,29 @@ const App: React.FC = () => {
           const accessToken = data.accessToken as string;
           apiService.socialLogin('microsoft', accessToken).then((res: any) => {
             const u = res.user || res;
-            if (u) {
+              if (u) {
               const normalized = (u.id || u._id) ? ({ ...u, id: String(u.id || u._id) }) : u;
               if (normalized.status && normalized.status !== 'ACTIVE') {
                 setPopup({ open: true, type: 'warning', title: 'Cuenta inactiva', message: 'Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.' });
                 return;
               }
-              localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
-              setUser(normalized);
+              apiService.getSubscriptionState(normalized).then(sub => {
+                if (sub.state === SubscriptionState.EXPIRED) {
+                  showTempError(sub.message || 'Tu suscripción ha expirado.', true);
+                  return;
+                }
+                if (sub.state === SubscriptionState.WARNING) {
+                  showTempError(sub.message || '', false);
+                } else {
+                  setError(null);
+                }
+                localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+                setUser(normalized);
+              }).catch(() => {
+                setError(null);
+                localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+                setUser(normalized);
+              });
             }
           }).catch(() => {});
           if (!removedListener) { window.removeEventListener('message', messageHandler); removedListener = true; }
@@ -206,8 +251,23 @@ const App: React.FC = () => {
                 setPopup({ open: true, type: 'warning', title: 'Cuenta inactiva', message: 'Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.' });
                 return;
               }
-              localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
-              setUser(normalized);
+              apiService.getSubscriptionState(normalized).then(sub => {
+                if (sub.state === SubscriptionState.EXPIRED) {
+                  showTempError(sub.message || 'Tu suscripción ha expirado.', true);
+                  return;
+                }
+                if (sub.state === SubscriptionState.WARNING) {
+                  showTempError(sub.message || '', false);
+                } else {
+                  setError(null);
+                }
+                localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+                setUser(normalized);
+              }).catch(() => {
+                setError(null);
+                localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+                setUser(normalized);
+              });
             }
           }).catch(() => {});
           return;
@@ -290,8 +350,23 @@ const App: React.FC = () => {
             setPopup({ open: true, type: 'warning', title: 'Cuenta inactiva', message: 'Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.' });
             return;
           }
-          localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
-          setUser(normalized);
+            apiService.getSubscriptionState(normalized).then(sub => {
+            if (sub.state === SubscriptionState.EXPIRED) {
+              showTempError(sub.message || 'Tu suscripción ha expirado.', true);
+              return;
+            }
+            if (sub.state === SubscriptionState.WARNING) {
+              showTempError(sub.message || '', false);
+            } else {
+              setError(null);
+            }
+            localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+            setUser(normalized);
+          }).catch(() => {
+            setError(null);
+            localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+            setUser(normalized);
+          });
         }
       }).catch(() => {});
     } catch (e) {
@@ -333,8 +408,23 @@ const App: React.FC = () => {
                       setPopup({ open: true, type: 'warning', title: 'Cuenta inactiva', message: 'Tu cuenta está inactiva. Contacta al administrador para activarla antes de usar la aplicación.' });
                       return;
                     }
-                    localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
-                    setUser(normalized);
+                              apiService.getSubscriptionState(normalized).then(sub => {
+                                if (sub.state === SubscriptionState.EXPIRED) {
+                                  showTempError(sub.message || 'Tu suscripción ha expirado.', true);
+                                  return;
+                                }
+                                if (sub.state === SubscriptionState.WARNING) {
+                                  showTempError(sub.message || '', false);
+                                } else {
+                                  setError(null);
+                                }
+                                localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+                                setUser(normalized);
+                              }).catch(() => {
+                                setError(null);
+                                localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
+                                setUser(normalized);
+                              });
                   }
                 }).catch(() => {});
               } catch (e) {
@@ -390,15 +480,16 @@ const App: React.FC = () => {
           return;
         }
         const sub = await apiService.getSubscriptionState(found);
+        console.info('[Ares] Subscription state after manual login:', sub.state, sub.message || '');
         if (sub.state === SubscriptionState.EXPIRED) {
-          setError({ message: sub.message!, isBlocking: true });
+          showTempError(sub.message!, true);
           return;
         }
         setUser(found);
         localStorage.setItem(SESSION_KEY, JSON.stringify({ user: found, expiresAt: Date.now() + SESSION_TTL_MS }));
         if (found.role === UserRole.COACH || found.role === UserRole.ADMIN) setActiveTab('users');
         else setActiveTab('dashboard');
-        setError(sub.message ? { message: sub.message, isBlocking: false } : null);
+        if (sub.message) showTempError(sub.message, false); else setError(null);
       } else {
         setError({ message: 'Credenciales inválidas', isBlocking: false });
       }

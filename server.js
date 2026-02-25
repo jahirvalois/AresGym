@@ -234,13 +234,35 @@ app.post('/api/users', async (req, res) => {
     }
 
     const { token, hashedToken, expiresAt } = generateResetToken();
+
+    // Normalize subscriptionEndDate to date-only string (YYYY-MM-DD)
+    const normalizeToDateOnly = (val) => {
+      if (!val) return undefined;
+      // If already YYYY-MM-DD, keep as-is
+      if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+      // Parse and format in America/Chihuahua timezone to avoid off-by-one
+      try {
+        const d = new Date(val);
+        const parts = new Intl.DateTimeFormat('en', { timeZone: 'America/Chihuahua', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);
+        const y = parts.find(p => p.type === 'year').value;
+        const m = parts.find(p => p.type === 'month').value;
+        const dd = parts.find(p => p.type === 'day').value;
+        return `${y}-${m}-${dd}`;
+      } catch (e) {
+        return undefined;
+      }
+    };
+
+    const normalizedSubscription = normalizeToDateOnly(newUser?.subscriptionEndDate);
+
     const user = {
       ...newUser,
       email: normalizedEmail,
       resetToken: hashedToken,
       resetTokenExpiresAt: expiresAt.toISOString(),
       createdAt: new Date().toISOString(),
-      isFirstLogin: true
+      isFirstLogin: true,
+      ...(normalizedSubscription ? { subscriptionEndDate: normalizedSubscription } : {})
     };
 
     const result = await db.collection("users").insertOne(user);
@@ -272,6 +294,27 @@ app.patch('/api/users/:id', async (req, res) => {
     } else {
       filter = { id: idParam };
     }
+    // If subscriptionEndDate is being updated, normalize to YYYY-MM-DD in America/Chihuahua
+    if (updates && updates.subscriptionEndDate) {
+      const normalizeToDateOnly = (val) => {
+        if (!val) return undefined;
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+        try {
+          const d = new Date(val);
+          const parts = new Intl.DateTimeFormat('en', { timeZone: 'America/Chihuahua', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);
+          const y = parts.find(p => p.type === 'year').value;
+          const m = parts.find(p => p.type === 'month').value;
+          const dd = parts.find(p => p.type === 'day').value;
+          return `${y}-${m}-${dd}`;
+        } catch (e) {
+          return undefined;
+        }
+      };
+      const normalized = normalizeToDateOnly(updates.subscriptionEndDate);
+      if (normalized) updates.subscriptionEndDate = normalized;
+      else delete updates.subscriptionEndDate;
+    }
+
     await db.collection("users").updateOne(filter, { $set: updates });
     // Fetch and return the updated user document
     const updatedUser = await db.collection('users').findOne(filter);
@@ -515,6 +558,14 @@ app.post('/api/auth/social-login', async (req, res) => {
     }
 
     // Create new INACTIVE user for social signup
+    const formatDateOnlyInTZ = (date) => {
+      const parts = new Intl.DateTimeFormat('en', { timeZone: 'America/Chihuahua', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+      const y = parts.find(p => p.type === 'year').value;
+      const m = parts.find(p => p.type === 'month').value;
+      const dd = parts.find(p => p.type === 'day').value;
+      return `${y}-${m}-${dd}`;
+    };
+
     const newUser = {
       email: normalizedEmail,
       name: (typeof resolvedName !== 'undefined' ? resolvedName : (name || 'Guerrero')),
@@ -525,7 +576,7 @@ app.post('/api/auth/social-login', async (req, res) => {
       profilePicture: (typeof resolvedAvatar !== 'undefined' ? resolvedAvatar : avatar),
       createdAt: new Date().toISOString(),
       isFirstLogin: true,
-      subscriptionEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      subscriptionEndDate: formatDateOnlyInTZ(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
     };
 
     const result = await db.collection('users').insertOne(newUser);

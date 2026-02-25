@@ -10,7 +10,8 @@
     <script>
       (function(){
         try {
-          const redirectUri = window.location.origin + '/msal_redirect.html';
+          // Prefer redirectUri from query param or injected runtime var; fall back to origin + /msal_redirect.html
+          const redirectUri = (new URLSearchParams(location.search).get('redirectUri')) || window.__VITE_MICROSOFT_REDIRECT_URI || (window.location.origin + '/msal_redirect.html');
           // Try to get clientId from injected runtime var or query param
           let clientId = (window.__VITE_MICROSOFT_CLIENT_ID || '') || (new URLSearchParams(location.search).get('clientId') || '');
 
@@ -59,6 +60,7 @@
 
           if (clientId) {
             console.debug('[msal_redirect] using embedded clientId', clientId);
+            try { window.opener?.postMessage({ type: 'msal_debug', message: 'redirect_init', clientId, redirectUri }, '*'); } catch(_) {}
             initWithClientId(clientId);
             return;
           }

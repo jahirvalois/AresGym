@@ -322,12 +322,12 @@ app.post('/api/users', async (req, res) => {
 app.patch('/api/users/:id', async (req, res) => {
   try {
     const { updates } = req.body;
-    const idParam = req.params.id;
+    const idParam = String(req.params.id || '');
     let filter;
     if (ObjectId.isValid(idParam)) {
       filter = { _id: new ObjectId(idParam) };
     } else {
-      filter = { id: idParam };
+      filter = { id: { $eq: idParam } };
     }
     // If subscriptionEndDate is being updated, normalize to YYYY-MM-DD in America/Chihuahua
     if (updates && updates.subscriptionEndDate) {
@@ -368,11 +368,11 @@ app.patch('/api/users/:id', async (req, res) => {
 
 app.delete('/api/users/:id', async (req, res) => {
   try {
-    const idParam = req.params.id;
+    const idParam = String(req.params.id || '');
     if (ObjectId.isValid(idParam)) {
       await db.collection("users").deleteOne({ _id: new ObjectId(idParam) });
     } else {
-      await db.collection("users").deleteOne({ id: idParam });
+      await db.collection("users").deleteOne({ id: { $eq: idParam } });
     }
     await writeAuditLog(req.body.currentUser?.id || 'ADMIN', 'DELETE_USER', { userId: idParam });
     res.status(204).send();

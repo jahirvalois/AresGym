@@ -73,6 +73,13 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
+  const localToISOStringEndOfDay = (local?: string) => {
+    if (!local) return '';
+    const d = new Date(local);
+    d.setHours(23, 59, 59, 0);
+    return d.toISOString();
+  };
+
   // Arsenal (animations) search + pagination
   const [arsenalQuery, setArsenalQuery] = useState('');
   const [arsenalPage, setArsenalPage] = useState(1);
@@ -143,7 +150,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
-        subscriptionEndDate: newUser.role === UserRole.USER ? (newUser.subEnd ? new Date(newUser.subEnd).toISOString() : '') : '2050-12-31T23:59:59.000Z'
+        subscriptionEndDate: newUser.role === UserRole.USER ? (newUser.subEnd ? localToISOStringEndOfDay(newUser.subEnd) : '') : '2050-12-31T23:59:59.000Z'
       });
       setNotification({ type: 'success', message: 'Guerrero reclutado e invitacion enviada.' });
       setNewUser({ ...newUser, name: '', email: '' });
@@ -164,7 +171,10 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
       const { email, _id, id, ...updates } = editingUser as any;
       // If role was changed to USER and no subscriptionEndDate provided, set a default one month from now
       if (updates.role === UserRole.USER && !updates.subscriptionEndDate) {
-        updates.subscriptionEndDate = new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString();
+        const d = new Date();
+        d.setMonth(d.getMonth() + 1);
+        d.setHours(23, 59, 59, 0);
+        updates.subscriptionEndDate = d.toISOString();
       }
       const userId = id || (typeof _id === 'string' ? _id : (typeof _id === 'object' && _id?._id) ? String(_id) : undefined);
       await apiService.updateUser(currentUser, userId || editingUser.id, updates as any);
@@ -509,7 +519,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                     type="datetime-local"
                     className="w-full bg-slate-50 p-3 rounded-xl font-bold"
                     value={editingUser.subscriptionEndDate ? toLocalDatetimeInput(editingUser.subscriptionEndDate) : ''}
-                    onChange={e => setEditingUser({...editingUser, subscriptionEndDate: e.target.value ? new Date(e.target.value).toISOString() : ''})}
+                    onChange={e => setEditingUser({...editingUser, subscriptionEndDate: e.target.value ? localToISOStringEndOfDay(e.target.value) : ''})}
                   />
                 )}
               </div>

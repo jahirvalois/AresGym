@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } from '@azure/storage-blob';
 import fs from 'fs';
 import os from 'os';
@@ -35,6 +36,18 @@ app.use((req, res, next) => {
 // Allow larger JSON payloads for base64 uploads (use with care)
 app.use(express.json({ limit: '30mb' }));
 app.use(express.urlencoded({ extended: true, limit: '30mb' }));
+
+// Rate limiter for API endpoints to mitigate DoS risk
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: { error: 'Too many requests, please try again later.' }
+});
+
+// Apply rate limiting to all API routes
+app.use('/api/', apiLimiter);
 
 const AZ_CONTAINER = process.env.AZURE_STORAGE_CONTAINER || 'exercise-media';
 const AZ_CONN = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
@@ -592,8 +605,15 @@ app.post('/api/auth/social-login', async (req, res) => {
 // Rutinas
 app.get('/api/routines', async (req, res) => {
   try {
-    const userId = req.query.userId;
-    const filter = userId ? { userId } : {};
+    const rawUserId = req.query.userId;
+    let userId;
+    if (rawUserId && typeof rawUserId === 'string') {
+      const trimmed = rawUserId.trim();
+      if (trimmed !== '') userId = trimmed;
+    } else if (typeof rawUserId === 'number') {
+      userId = rawUserId;
+    }
+    const filter = userId ? { userId: { $eq: userId } } : {};
     try {
       const routines = await db.collection("routines").find(filter).sort({ createdAt: -1 }).toArray();
       return res.json(routines);
@@ -609,10 +629,14 @@ app.get('/api/routines', async (req, res) => {
 app.post('/api/routines', async (req, res) => {
   try {
     const { coachId, routine } = req.body;
+    const userId = routine?.userId;
+    if (!userId || (typeof userId !== 'string' && typeof userId !== 'number')) {
+      return res.status(400).json({ error: 'Invalid userId' });
+    }
     const newRoutine = { ...routine, coachId, status: 'ACTIVE', createdAt: new Date().toISOString() };
-    await db.collection("routines").updateMany({ userId: routine.userId }, { $set: { status: 'ARCHIVED' } });
+    await db.collection("routines").updateMany({ userId: { $eq: userId } }, { $set: { status: 'ARCHIVED' } });
     const result = await db.collection("routines").insertOne(newRoutine);
-    await writeAuditLog(coachId || 'COACH', 'CREATE_ROUTINE', { routineId: result.insertedId.toString(), userId: routine.userId });
+    await writeAuditLog(coachId || 'COACH', 'CREATE_ROUTINE', { routineId: result.insertedId.toString(), userId });
     res.status(201).json({ ...newRoutine, _id: result.insertedId });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

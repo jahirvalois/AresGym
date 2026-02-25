@@ -40,7 +40,7 @@ app.use(express.urlencoded({ extended: true, limit: '30mb' }));
 // Rate limiter for API endpoints to mitigate DoS risk
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 10000, // limit each IP to 10000 requests per windowMs
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: { error: 'Too many requests, please try again later.' }
@@ -52,7 +52,7 @@ app.use('/api/', apiLimiter);
 // Rate limiter for static assets / SPA routes (higher limits)
 const staticLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // allow more requests for static assets
+  max: 3000, // allow more requests for static assets
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many requests, please try again later.'

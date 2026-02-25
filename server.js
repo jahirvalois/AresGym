@@ -49,6 +49,15 @@ const apiLimiter = rateLimit({
 // Apply rate limiting to all API routes
 app.use('/api/', apiLimiter);
 
+// Rate limiter for static assets / SPA routes (higher limits)
+const staticLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300, // allow more requests for static assets
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests, please try again later.'
+});
+
 const AZ_CONTAINER = process.env.AZURE_STORAGE_CONTAINER || 'exercise-media';
 const AZ_CONN = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
 
@@ -111,7 +120,20 @@ async function appendLocalAudit(entry) {
 }
 
 function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (typeof email !== 'string') return false;
+  // Fast reject overly long input to avoid catastrophic regex backtracking
+  if (email.length === 0 || email.length > 254) return false;
+  // Split local and domain parts to do lightweight checks first
+  const parts = email.split('@');
+  if (parts.length !== 2) return false;
+  const [local, domain] = parts;
+  if (!local || !domain) return false;
+  if (local.length > 64) return false; // per RFC limits
+  if (/[\s]/.test(local) || /[\s]/.test(domain)) return false;
+  // Simple, non-backtracking regex checks for allowed characters
+  const localOk = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(local);
+  const domainOk = /^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(domain);
+  return !!(localOk && domainOk);
 }
 
 function normalizeEmail(email) {
@@ -914,11 +936,11 @@ app.get('/api/audit', async (req, res) => {
 // Serve Swagger UI at /api-docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
-// Servir archivos estáticos de la carpeta 'dist'
-app.use(express.static(path.join(__dirname, 'dist')));
+// Servir archivos estáticos de la carpeta 'dist' (rate-limited)
+app.use('/', staticLimiter, express.static(path.join(__dirname, 'dist')));
 
 // Cualquier ruta que no sea de la API o docs, sirve el index.html (soporte para SPA)
-app.get('*', (req, res) => {
+app.get('*', staticLimiter, (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 

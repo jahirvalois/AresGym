@@ -630,20 +630,21 @@ const App: React.FC = () => {
                       </span>
                       <span>Sign in with Google</span>
                     </button>
-                    <button type="button" onClick={signInMicrosoft} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-[#2F2F2F] text-white px-4 rounded-md font-bold text-sm shadow-md hover:opacity-90">
-                      <span className="w-5 h-5 inline-block" aria-hidden>
-                        <img src={microsoftIcon} alt="Microsoft" className="w-full h-full object-contain" />
-                      </span>
-                      <span>Sign in with Microsoft</span>
-                    </button>
                     {/*
+                      <button type="button" onClick={signInMicrosoft} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-[#2F2F2F] text-white px-4 rounded-md font-bold text-sm shadow-md hover:opacity-90">
+                        <span className="w-5 h-5 inline-block" aria-hidden>
+                          <img src={microsoftIcon} alt="Microsoft" className="w-full h-full object-contain" />
+                        </span>
+                        <span>Sign in with Microsoft</span>
+                      </button> 
+                    
                       <button type="button" onClick={signInApple} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-black text-white px-4 rounded-md font-bold text-sm shadow-md hover:opacity-90">
                         <span className="w-5 h-5 inline-block" aria-hidden>
                           <img src="/images/apple-icon-logo-png.png" alt="Apple" className="w-full h-full object-contain" />
                         </span>
                         <span>Sign in with Apple</span>
                       </button>
-                    */}
+                      */}
                   </div>
                   <div className="text-center">
                     <button type="button" onClick={() => setShowEmailForm(true)} className="mt-4 text-[8px] font-black uppercase italic text-primary hover:text-black">Iniciar con email</button>
@@ -671,13 +672,14 @@ const App: React.FC = () => {
                         </span>
                         <span>Sign in with Google</span>
                       </button>
+                      {/*
                       <button type="button" onClick={signInMicrosoft} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-[#2F2F2F] text-white px-4 rounded-md font-bold text-sm shadow-md hover:opacity-90">
                         <span className="w-5 h-5 inline-block" aria-hidden>
                           <img src={microsoftIcon} alt="Microsoft" className="w-full h-full object-contain" />
                         </span>
                         <span>Sign in with Microsoft</span>
                       </button>
-                      {/*
+                      
                       <button type="button" onClick={signInApple} className="w-[220px] h-10 flex items-center justify-center gap-3 bg-black text-white px-4 rounded-md font-bold text-sm shadow-md hover:opacity-90">
                         <span className="w-5 h-5 inline-block" aria-hidden>
                           <img src="/images/apple-icon-logo-png.png" alt="Apple" className="w-full h-full object-contain" />

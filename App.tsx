@@ -740,6 +740,7 @@ const App: React.FC = () => {
         )}
         
         {activeTab === 'animations' && user.role === UserRole.ADMIN && <DashboardAdmin activeTab="animations" currentUser={user} />}
+        {activeTab === 'metrics' && user.role === UserRole.ADMIN && <DashboardAdmin activeTab="metrics" currentUser={user} />}
         {activeTab === 'audit' && user.role === UserRole.ADMIN && <DashboardAdmin activeTab="audit" currentUser={user} />}
         {activeTab === 'branding' && user.role === UserRole.ADMIN && <BrandingManager />}
         

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/apiService';
+import MetricsPanel from '../components/MetricsPanel';
 import { User, UserRole, UserStatus, AuditLog } from '../types';
 
 type SortKey = 'name' | 'role' | 'status' | 'vencimiento' | 'origin';
@@ -344,6 +345,10 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
   };
 
   if (loading) return <div className="p-20 text-center font-black animate-pulse text-slate-400 uppercase italic">Sincronizando Base de Datos...</div>;
+
+  if (activeTab === 'metrics') {
+    return <MetricsPanel currentUser={currentUser} />;
+  }
 
   if (activeTab === 'users') {
     const sortedUsers = getSortedUsers();

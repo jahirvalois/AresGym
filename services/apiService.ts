@@ -256,6 +256,33 @@ export const apiService = {
     try { return await request<AuditLog[]>('/audit'); } catch { return getLocal('audit', []); }
   },
 
+  // Strict methods: throw on error (no local fallback) to detect DB connectivity
+  async getUsersStrict(): Promise<User[]> {
+    const users = await request<User[]>('/users');
+    return users.map(normalizeUser);
+  },
+
+  async getAuditLogsStrict(): Promise<AuditLog[]> {
+    return await request<AuditLog[]>('/audit');
+  },
+
+  async getExerciseBankStrict(): Promise<Record<string, string[]>> {
+    return await request<Record<string, string[]>>('/exercises/bank');
+  },
+
+  async getRoutinesStrict(role: UserRole, userId?: string) {
+    const query = userId ? `?userId=${userId}` : '';
+    const routines = await request<MonthlyRoutine[]>(`/routines${query}`);
+    return routines.map(r => {
+      if ((r as any).id) return r;
+      if ((r as any)._id) {
+        const idValue = typeof (r as any)._id === 'object' && (r as any)._id.$oid ? (r as any)._id.$oid : String((r as any)._id);
+        return { ...r, id: idValue } as MonthlyRoutine;
+      }
+      return r;
+    });
+  },
+
   async getAllExerciseMedia() {
     try { return await request<Record<string, string>>('/exercises/media'); } catch { return getLocal('media', {}); }
   },

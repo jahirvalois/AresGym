@@ -32,6 +32,7 @@ export const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, active
 
   // Filtramos los items del menú según el rol. El ADMIN ya no ve 'dashboard'.
   const menuItems = [
+    { id: 'metrics', label: 'Métricas', roles: [UserRole.ADMIN] },
     { id: 'dashboard', label: 'Dashboard', roles: [UserRole.USER] },
     { id: 'users', label: 'Guerreros', roles: [UserRole.ADMIN, UserRole.COACH] },
     { id: 'routines', label: 'Arsenal (Rutinas)', roles: [UserRole.COACH, UserRole.ADMIN] },
@@ -62,6 +63,10 @@ export const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, active
       case 'branding':
         return (
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v18"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12h18"/></svg>
+        );
+      case 'metrics':
+        return (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3v18h18"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 13v6"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v10"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 5v14"/></svg>
         );
       case 'audit':
         return (

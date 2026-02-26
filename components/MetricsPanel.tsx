@@ -111,9 +111,9 @@ export const MetricsPanel: React.FC<{ currentUser: User }> = ({ currentUser }) =
   });
   const [loading, setLoading] = useState(true);
   const [connError, setConnError] = useState<string | null>(null);
-  const [activityRange, setActivityRange] = useState<'5y'|'1y'|'1m'|'7d'|'1d'>('7d');
+  const [activityRange, setActivityRange] = useState<'5y'|'1y'|'1m'|'7d'|'1d'>('1d');
   const [granularity, setGranularity] = useState<'auto'|'hour'|'day'|'month'>('auto');
-  const [useChartLib, setUseChartLib] = useState(false);
+  const [useChartLib, setUseChartLib] = useState(true);
   const [ChartLib, setChartLib] = useState<any>(null);
 
   useEffect(() => {

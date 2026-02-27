@@ -71,8 +71,11 @@ export interface WorkoutLog {
   routineId: string;
   userId: string;
   weightUsed: number;
+  weightUnit?: string;
+  total?: number;
   repsDone: number;
   rpe: number;
+  type?: string; // 'routine' | 'warmup' etc.
   notes: string;
   date: string;
 }

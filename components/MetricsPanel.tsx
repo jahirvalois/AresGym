@@ -486,15 +486,15 @@ export const MetricsPanel: React.FC<{ currentUser: User }> = ({ currentUser }) =
 
           <div className="col-span-1 bg-white p-4 rounded-2xl shadow">
             <h3 className="font-black uppercase text-xs text-slate-500">Suscripciones</h3>
-            <div className="text-2xl font-extrabold mt-3">Vencidos: {expired}</div>
-            <div className="text-lg font-bold mt-1 text-amber-600">Por vencer (7d): {expiringSoon}</div>
+            {/*<div className="text-2xl font-extrabold mt-3">Vencidos: {expired}</div>
+            <div className="text-lg font-bold mt-1 text-amber-600">Por vencer (7d): {expiringSoon}</div>*/}
             <div className="mt-4 text-[12px] text-slate-600">Estas cifras se calculan según `subscriptionEndDate` en los usuarios.</div>
 
             <div className="mt-4 grid grid-cols-1 gap-4">
               <div>
-                <h4 className="font-bold text-sm text-slate-600">Vencidos</h4>
+                <h4 className="font-bold text-2xl text-slate-600">Vencidos: {expired}</h4>
                   {expiredUsers.length === 0 ? (
-                    <div className="text-[12px] text-slate-400 mt-2">Nadie vencido.</div>
+                    <div className="text-2xl text-slate-400 mt-2">Nadie vencido.</div>
                   ) : (
                     <div className="w-full overflow-x-auto mt-2">
                       <table className="w-full text-sm">
@@ -524,9 +524,9 @@ export const MetricsPanel: React.FC<{ currentUser: User }> = ({ currentUser }) =
               </div>
 
               <div>
-                <h4 className="font-bold text-sm text-slate-600">Por vencer (7d)</h4>
+                <h4 className="font-bold text-2xl text-slate-600">Por vencer (7d)</h4>
                 {expiringUsers.length === 0 ? (
-                  <div className="text-[12px] text-slate-400 mt-2">Nadie por vencer próximamente.</div>
+                  <div className="text-2xl text-slate-400 mt-2">Nadie por vencer próximamente.</div>
                 ) : (
                   <div className="w-full overflow-x-auto mt-2">
                     <table className="w-full text-sm">

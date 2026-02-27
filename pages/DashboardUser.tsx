@@ -10,6 +10,11 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeExercise, setActiveExercise] = useState<Exercise | null>(null);
+  const [logReps, setLogReps] = useState<number>(0);
+  const [logWeight, setLogWeight] = useState<number>(0);
+  const [logType, setLogType] = useState<'warmup'|'routine'>('routine');
+  const [showAddRow, setShowAddRow] = useState<boolean>(false);
+  const total = (logReps || 0) * (logWeight || 0);
   const [subState, setSubState] = useState<{state: SubscriptionState, message: string | null}>({ state: SubscriptionState.OK, message: null });
   const [isAlertDismissed, setIsAlertDismissed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,6 +46,11 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     if (activeExercise) {
       setMediaLoading(true);
       setMediaError(false);
+      // reset log inputs when opening an exercise
+      setLogReps(activeExercise.reps || 0);
+      setLogWeight(0);
+      setLogType('routine');
+      setShowAddRow(false);
     }
   }, [activeExercise]);
 
@@ -64,25 +74,66 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     const startOfWeek = new Date(now.setDate(diff));
     startOfWeek.setHours(0, 0, 0, 0);
 
+    // Consider an exercise "conquered" only when the user explicitly
+    // confirmed the conquest. That is represented by a log with type 'conquest'.
     return logs.some(log => {
       const logDate = new Date(log.date);
-      return log.exerciseId === exerciseId && logDate >= startOfWeek;
+      return log.exerciseId === exerciseId && logDate >= startOfWeek && log.type === 'conquest';
     });
   };
 
   const handleLogWorkout = async () => {
     if (!activeExercise) return;
+    // only allow logging if exercise is part of assigned routine
+    const assigned = !!currentDayRoutine && (currentDayRoutine.exercises || []).some((ex: any) => String(ex.id || ex) === String(activeExercise.id) || (ex.name && ex.name === activeExercise.name));
+    if (!assigned) {
+      alert('No puedes registrar este ejercicio: no está asignado en tu rutina.');
+      return;
+    }
+
     await apiService.addLog({
       userId: currentUser.id,
       exerciseId: activeExercise.id,
       routineId: routine?.id || 'none',
-      weightUsed: 0,
-      repsDone: 0,
+      weightUsed: logWeight || 0,
+      weightUnit: 'lb',
+      total: total,
+      repsDone: logReps || 0,
       rpe: 8,
-      notes: 'Misión Conquistada'
+      notes: 'Registro desde UI',
+      type: logType
     });
     const updatedLogs = await apiService.getLogs(currentUser.id);
     setLogs(updatedLogs);
+    // keep modal open so user can add multiple records; reset inputs for next entry
+    setLogReps(0);
+    setLogWeight(0);
+    setLogType('routine');
+    setShowAddRow(true);
+  };
+
+  const handleConfirmConquest = async () => {
+    if (!activeExercise) return;
+    // Create a special 'conquest' log so completion is explicit and
+    // distinct from regular workout logs.
+    try {
+      await apiService.addLog({
+        userId: currentUser.id,
+        exerciseId: activeExercise.id,
+        routineId: routine?.id || 'none',
+        weightUsed: 0,
+        weightUnit: 'lb',
+        total: 0,
+        repsDone: 0,
+        rpe: 0,
+        notes: 'Conquista confirmada',
+        type: 'conquest'
+      });
+      const updatedLogs = await apiService.getLogs(currentUser.id);
+      setLogs(updatedLogs);
+    } catch (e) {
+      // ignore errors but keep UX consistent
+    }
     setActiveExercise(null);
   };
 
@@ -110,6 +161,32 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     if (!compA && compB) return -1;
     return 0;
   }) : [];
+
+  const exerciseLogs = activeExercise ? logs.filter(l => String(l.exerciseId) === String(activeExercise.id)) : [];
+
+  const getExerciseName = (exerciseId: string) => {
+    // Try to resolve name from current routine
+    try {
+      if (routine && routine.weeks) {
+        for (const w of routine.weeks) {
+          const days = w.days || [];
+          for (const d of days) {
+            const exercises = d.exercises || [];
+            for (const ex of exercises) {
+              const id = (ex && (ex.id || ex._id || ex.name)) ? (ex.id || ex._id || ex.name) : ex;
+              const name = (ex && (ex.name || ex.title)) ? (ex.name || ex.title) : null;
+              if (!id) continue;
+              if (String(id) === String(exerciseId)) return name || String(exerciseId);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    // fallback to id
+    return String(exerciseId);
+  };
 
   // helper to render media for active exercise (image, gif or video)
   const renderActiveMedia = () => {
@@ -272,9 +349,11 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
         </div>
       )}
 
-      {activeExercise && (
-            <div className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 z-[250] animate-in fade-in">
-          <div className="bg-white w-full max-w-lg rounded-[1rem] p-8 space-y-8 relative overflow-hidden shadow-[0_0_100px_rgba(234,179,8,0.2)] border border-white/20">
+          
+
+          {activeExercise && (
+            <div className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-start sm:items-center justify-center p-4 z-[250] overflow-auto animate-in fade-in">
+          <div className="bg-white w-full max-w-lg rounded-[1rem] p-8 space-y-8 relative shadow-[0_0_100px_rgba(234,179,8,0.2)] border border-white/20 max-h-[90vh] overflow-y-auto">
             <button onClick={() => setActiveExercise(null)} className="absolute top-8 right-8 w-10 h-10 bg-slate-100 hover:bg-red-500 hover:text-white rounded-2xl font-black transition-all flex items-center justify-center text-lg shadow-lg z-50">✕</button>
             
             <div className="space-y-2">
@@ -308,22 +387,103 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className="bg-slate-50 p-8 rounded-[2rem] text-center border border-slate-100 shadow-inner">
+            <div className="grid grid-cols-2 gap-2 place-items-center">
+              <div className="bg-slate-50 p-4 rounded-[1rem] w-[150px] text-center border border-slate-100 shadow-inner">
                 <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Series</p>
-                <p className="text-4xl font-black italic text-slate-900">{activeExercise.series}</p>
+                <p className="text-2xl font-black italic text-slate-900">{activeExercise.series}</p>
               </div>
-              <div className="bg-slate-50 p-8 rounded-[2rem] text-center border border-slate-100 shadow-inner">
+              <div className="bg-slate-50 p-4 rounded-[1rem] w-[150px] text-center border border-slate-100 shadow-inner">
                 <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Misión</p>
-                <p className="text-4xl font-black italic text-slate-900">{activeExercise.reps}</p>
+                <p className="text-2xl font-black italic text-slate-900">{activeExercise.reps}</p>
               </div>
             </div>
 
             {isExerciseCompletedThisWeek(activeExercise.id) ? (
               <div className="w-full bg-green-500 text-white py-4 rounded-[1rem] font-black uppercase italic text-center text-2xl shadow-xl animate-pulse">OBJETIVO CONQUISTADO</div>
             ) : (
-              <button onClick={handleLogWorkout} className="w-full bg-black text-primary py-4 rounded-[1rem] font-black uppercase italic tracking-tighter text-2xl active:scale-95 transition-all shadow-[0_15px_40px_rgba(0,0,0,0.3)] hover:bg-primary hover:text-black">Confirmar Conquista</button>
+              <button onClick={handleConfirmConquest} className="w-full bg-black text-primary py-4 rounded-[1rem] font-black uppercase italic tracking-tighter text-2xl active:scale-95 transition-all shadow-[0_15px_40px_rgba(0,0,0,0.3)] hover:bg-primary hover:text-black">Confirmar Conquista</button>
             )}
+
+            <div className="mt-4">
+              <div className="flex justify-center mb-3">
+                <button onClick={() => { setLogReps(0); setLogWeight(0); setLogType('routine'); setShowAddRow(true); }} className="bg-primary text-white px-6 py-3 rounded-full font-black uppercase tracking-wider hover:opacity-90">Agregar registro</button>
+              </div>
+              {showAddRow && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm table-fixed border-collapse">
+                    <thead>
+                      <tr className="text-left text-[11px] text-slate-500 border-b">
+                        <th className="py-2 w-1/4">Tipo</th>
+                        <th className="py-2 w-1/4">Reps</th>
+                        <th className="py-2 w-1/4">Peso (lb)</th>
+                        <th className="py-2 w-1/4">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="align-top">
+                        <td className="py-2 pr-2">
+                          <select value={logType} onChange={e => setLogType(e.target.value as any)} className="w-full p-2 border rounded" aria-label="Tipo de registro">
+                            <option value="routine" title="Routine">🏋️</option>
+                            <option value="warmup" title="Warmup">🔥</option>
+                          </select>
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input type="number" defaultValue={0} value={logReps} onChange={e => setLogReps(Number(e.target.value))} className="w-full p-2 border rounded" />
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input type="number" defaultValue={0} value={logWeight} onChange={e => setLogWeight(Number(e.target.value))} className="w-full p-2 border rounded" />
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input type="text" defaultValue={`0 x 0 lb`} value={`${logReps} x ${logWeight} lb`} readOnly className="w-full p-2 border rounded bg-slate-50" />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div className="flex justify-end gap-2 mt-3">
+                    <button onClick={() => { setLogReps(0); setLogWeight(0); setLogType('routine'); setShowAddRow(false); }} className="px-4 py-2 rounded border">Cancelar</button>
+                    <button
+                      onClick={handleLogWorkout}
+                      disabled={!(logReps > 0 && logWeight > 0)}
+                      className={`px-4 py-2 rounded font-black ${logReps > 0 && logWeight > 0 ? 'bg-black text-primary hover:opacity-90' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
+                      Enviar
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* Historial de Registros (moved inside modal below add fields) */}
+              <div className="mt-6 bg-white p-4 rounded-lg shadow-inner border">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-black uppercase text-sm text-slate-600">Historial de Registros</h4>
+                  <div className="text-[12px] text-slate-500">Total: {exerciseLogs.length}</div>
+                </div>
+                {exerciseLogs.length === 0 ? (
+                  <div className="text-[13px] text-slate-400">Aún no has registrado nada para este ejercicio.</div>
+                ) : (
+                  <div className="w-full overflow-y-auto overflow-x-auto max-h-44">
+                    <table className="w-full text-sm">
+                      <thead className="text-left text-[12px] text-slate-500 border-b sticky top-0 bg-white z-10">
+                        <tr>
+                          <th className="py-2 pl-0">Tipo</th>
+                          <th className="py-2">Reps</th>
+                          <th className="py-2">Peso</th>
+                          <th className="py-2">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {exerciseLogs.map((l: any) => (
+                          <tr key={l.id || l._id || `${l.exerciseId}-${l.date}`} className="border-b last:border-b-0">
+                            <td className="py-2" title={l.type === 'warmup' ? 'Warmup' : 'Routine'}>{l.type === 'warmup' ? '🔥' : '🏋️'}</td>
+                            <td className="py-2">{l.repsDone ?? l.reps ?? '-'}</td>
+                            <td className="py-2">{(l.weightUsed || l.weight || 0)} {l.weightUnit || 'lb'}</td>
+                            <td className="py-2">{(l.repsDone != null && l.weightUsed != null) ? `${l.repsDone} x ${l.weightUsed} ${l.weightUnit || 'lb'}` : (l.total !== undefined ? `${l.total} ${l.weightUnit || 'lb'}` : '-')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

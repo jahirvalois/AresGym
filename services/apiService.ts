@@ -229,12 +229,31 @@ export const apiService = {
     }
   },
 
-  async getLogs(userId: string) {
+  async getLogs(userId: string, options?: { limit?: number; skip?: number; exerciseId?: string; includeTotal?: boolean }) {
     try {
-      return await request<WorkoutLog[]>(`/logs?userId=${userId}`);
+      const params: string[] = [];
+      if (userId) params.push(`userId=${encodeURIComponent(userId)}`);
+      if (options?.exerciseId) params.push(`exerciseId=${encodeURIComponent(options.exerciseId)}`);
+      if (options?.limit != null) params.push(`limit=${Number(options.limit)}`);
+      if (options?.skip != null) params.push(`skip=${Number(options.skip)}`);
+      if (options?.includeTotal) params.push(`includeTotal=true`);
+      const query = params.length ? `?${params.join('&')}` : '';
+      const res: any = await request<any>(`/logs${query}`);
+      if (options?.includeTotal && res && typeof res === 'object' && Array.isArray(res.items)) return res; // { items, total }
+      // otherwise return array
+      return res as WorkoutLog[];
     } catch {
       const all = getLocal('logs', []);
-      return all.filter((l: any) => l.userId === userId);
+      let filtered = all.filter((l: any) => l.userId === userId);
+      if (options?.exerciseId) filtered = filtered.filter((l: any) => String(l.exerciseId) === String(options.exerciseId));
+      const skip = options?.skip ? Number(options.skip) : 0;
+      const limit = options?.limit ? Number(options.limit) : undefined;
+      if (options?.includeTotal) {
+        const items = (typeof limit === 'number') ? filtered.slice(skip, skip + limit) : filtered.slice(skip);
+        return { items, total: filtered.length };
+      }
+      if (typeof limit === 'number') return filtered.slice(skip, skip + limit);
+      return filtered.slice(skip);
     }
   },
 

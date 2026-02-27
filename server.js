@@ -938,8 +938,43 @@ app.get('/api/logs', async (req, res) => {
   try {
     const userId = String(req.query.userId || '');
     if (!userId) return res.status(400).json({ error: 'MISSING_USERID' });
-    const logs = await db.collection('logs').find({ userId }).sort({ date: -1 }).toArray();
-    return res.json(logs);
+    // Support optional filtering/pagination params
+    const exerciseId = req.query.exerciseId;
+    const limit = req.query.limit ? Math.max(0, parseInt(String(req.query.limit), 10) || 0) : 0;
+    const skip = req.query.skip ? Math.max(0, parseInt(String(req.query.skip), 10) || 0) : 0;
+    const includeTotal = String(req.query.includeTotal || '').toLowerCase() === 'true';
+
+    const query = { userId };
+    if (exerciseId) query.exerciseId = String(exerciseId);
+
+    try {
+      // Try server-side sort with optional skip/limit (more efficient when supported)
+      let cursor = db.collection('logs').find(query).sort({ date: -1 });
+      if (skip) cursor = cursor.skip(skip);
+      if (limit) cursor = cursor.limit(limit);
+      const logs = await cursor.toArray();
+      if (includeTotal) {
+        const total = await db.collection('logs').countDocuments(query);
+        return res.json({ items: logs, total });
+      }
+      return res.json(logs);
+    } catch (innerErr) {
+      // Some providers (e.g., Cosmos) may reject order-by if the index doesn't allow it.
+      // Fallback to reading and sorting in-memory and then slicing for pagination.
+      console.warn('DB-side sort/pagination failed for /api/logs, falling back to in-memory processing:', innerErr?.message || innerErr);
+      const logs = await db.collection('logs').find(query).toArray();
+      logs.sort((a, b) => {
+        const da = a && a.date ? new Date(a.date).getTime() : 0;
+        const dbt = b && b.date ? new Date(b.date).getTime() : 0;
+        return dbt - da;
+      });
+      const sliced = (limit > 0) ? logs.slice(skip, skip + limit) : logs.slice(skip);
+      if (includeTotal) {
+        const total = logs.length;
+        return res.json({ items: sliced, total });
+      }
+      return res.json(sliced);
+    }
   } catch (err) {
     console.warn('Failed to read logs', err?.message || err);
     return res.status(500).json({ error: err?.message || 'LOGS_READ_FAILED' });
@@ -957,7 +992,12 @@ app.post('/api/logs', async (req, res) => {
     const query = (routineId && routineId !== 'none') ? { userId, id: routineId } : { userId, status: { $ne: 'ARCHIVED' } };
     const routine = await routinesColl.findOne(query);
     let allowed = false;
-    if (routine) {
+    // If there's no routine record for this user, allow logging so clients
+    // can still save workouts when the DB doesn't contain routine data yet.
+    // When a routine exists, enforce the assignment check below.
+    if (!routine) {
+      allowed = true;
+    } else {
       try {
         const weeks = routine.weeks || [];
         for (const w of weeks) {
@@ -1021,9 +1061,9 @@ app.get('*', staticLimiter, (req, res) => {
 connectDB().then(() => {
   // Log important env values for debugging social login
   try {
-    console.log('ENV GOOGLE_CLIENT_ID =', process.env.GOOGLE_CLIENT_ID);
-    console.log('ENV VITE_GOOGLE_CLIENT_ID =', process.env.VITE_GOOGLE_CLIENT_ID);
-    console.log('ENV VITE_API_BASE_URL =', process.env.VITE_API_BASE_URL);
+    // console.log('ENV GOOGLE_CLIENT_ID =', process.env.GOOGLE_CLIENT_ID);
+    // console.log('ENV VITE_GOOGLE_CLIENT_ID =', process.env.VITE_GOOGLE_CLIENT_ID);
+    // console.log('ENV VITE_API_BASE_URL =', process.env.VITE_API_BASE_URL);
   } catch (e) {
     console.warn('Failed to read env vars', e);
   }

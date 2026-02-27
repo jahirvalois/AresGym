@@ -10,6 +10,10 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeExercise, setActiveExercise] = useState<Exercise | null>(null);
+  const [exercisePage, setExercisePage] = useState<number>(0);
+  const [exercisePageLogs, setExercisePageLogs] = useState<any[]>([]);
+  const EXERCISE_PAGE_SIZE = 4;
+  const [exerciseTotal, setExerciseTotal] = useState<number>(0);
   const [logReps, setLogReps] = useState<number>(0);
   const [logWeight, setLogWeight] = useState<number>(0);
   const [logType, setLogType] = useState<'warmup'|'routine'>('routine');
@@ -105,6 +109,8 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     });
     const updatedLogs = await apiService.getLogs(currentUser.id);
     setLogs(updatedLogs);
+    // refresh current exercise page
+    await fetchExercisePage(exercisePage);
     // keep modal open so user can add multiple records; reset inputs for next entry
     setLogReps(0);
     setLogWeight(0);
@@ -131,6 +137,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       });
       const updatedLogs = await apiService.getLogs(currentUser.id);
       setLogs(updatedLogs);
+      await fetchExercisePage(exercisePage);
     } catch (e) {
       // ignore errors but keep UX consistent
     }
@@ -144,9 +151,33 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       setMediaError(false);
       const mediaUrl = await apiService.getExerciseMedia(ex.name);
       setActiveExercise({ ...ex, mediaUrl: mediaUrl || ex.mediaUrl });
+      // reset paging and load first page for this exercise
+      setExercisePage(0);
+      fetchExercisePage(0, ex.id).catch(() => {});
     } catch (e) {
       // fallback to existing media on error
       setActiveExercise(ex);
+      setExercisePage(0);
+      fetchExercisePage(0, ex.id).catch(() => {});
+    }
+  };
+
+  const fetchExercisePage = async (page: number, exerciseId?: string) => {
+    if (!activeExercise && !exerciseId) return;
+    const exId = exerciseId || activeExercise!.id;
+    const skip = page * EXERCISE_PAGE_SIZE;
+    try {
+      const res: any = await apiService.getLogs(currentUser.id, { exerciseId: exId, limit: EXERCISE_PAGE_SIZE, skip, includeTotal: true });
+      if (res && Array.isArray(res.items)) {
+        setExercisePageLogs(res.items || []);
+        setExerciseTotal(res.total || 0);
+      } else {
+        setExercisePageLogs(res || []);
+        setExerciseTotal((res && res.length) ? res.length : 0);
+      }
+      setExercisePage(page);
+    } catch (e) {
+      setExercisePageLogs([]);
     }
   };
 
@@ -162,7 +193,8 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     return 0;
   }) : [];
 
-  const exerciseLogs = activeExercise ? logs.filter(l => String(l.exerciseId) === String(activeExercise.id)) : [];
+  const exerciseLogs = activeExercise ? exercisePageLogs : [];
+  const totalPages = Math.max(1, Math.ceil((exerciseTotal || 0) / EXERCISE_PAGE_SIZE));
 
   const getExerciseName = (exerciseId: string) => {
     // Try to resolve name from current routine
@@ -428,13 +460,13 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                           </select>
                         </td>
                         <td className="py-2 pr-2">
-                          <input type="number" defaultValue={0} value={logReps} onChange={e => setLogReps(Number(e.target.value))} className="w-full p-2 border rounded" />
+                          <input type="number" value={logReps} onChange={e => setLogReps(Number(e.target.value))} className="w-full p-2 border rounded" />
                         </td>
                         <td className="py-2 pr-2">
-                          <input type="number" defaultValue={0} value={logWeight} onChange={e => setLogWeight(Number(e.target.value))} className="w-full p-2 border rounded" />
+                          <input type="number" value={logWeight} onChange={e => setLogWeight(Number(e.target.value))} className="w-full p-2 border rounded" />
                         </td>
                         <td className="py-2 pr-2">
-                          <input type="text" defaultValue={`0 x 0 lb`} value={`${logReps} x ${logWeight} lb`} readOnly className="w-full p-2 border rounded bg-slate-50" />
+                          <input type="text" value={`${logReps} x ${logWeight} lb`} readOnly className="w-full p-2 border rounded bg-slate-50" />
                         </td>
                       </tr>
                     </tbody>
@@ -451,35 +483,50 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                 </div>
               )}
               {/* Historial de Registros (moved inside modal below add fields) */}
-              <div className="mt-6 bg-white p-4 rounded-lg shadow-inner border">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-black uppercase text-sm text-slate-600">Historial de Registros</h4>
-                  <div className="text-[12px] text-slate-500">Total: {exerciseLogs.length}</div>
-                </div>
+              <div className="mt-6 bg-white p-2 rounded-lg shadow-inner border">
+                  <div className="flex items-center justify-center mb-2">
+                      <h4 className="font-black uppercase text-sm text-slate-600 text-center w-full">Historial de Registros</h4>
+                    </div>
                 {exerciseLogs.length === 0 ? (
-                  <div className="text-[13px] text-slate-400">Aún no has registrado nada para este ejercicio.</div>
+                  <div className="text-[13px] text-slate-400">Aún no hay registros en esta página para este ejercicio.</div>
                 ) : (
                   <div className="w-full overflow-y-auto overflow-x-auto max-h-44">
                     <table className="w-full text-sm">
                       <thead className="text-left text-[12px] text-slate-500 border-b sticky top-0 bg-white z-10">
                         <tr>
-                          <th className="py-2 pl-0">Tipo</th>
-                          <th className="py-2">Reps</th>
-                          <th className="py-2">Peso</th>
-                          <th className="py-2">Total</th>
+                          <th className="py-1 text-center">Tipo</th>
+                          <th className="py-1 text-center">Reps</th>
+                          <th className="py-1 text-center">Peso</th>
+                          <th className="py-1 text-center">Total</th>
                         </tr>
                       </thead>
                       <tbody>
                         {exerciseLogs.map((l: any) => (
                           <tr key={l.id || l._id || `${l.exerciseId}-${l.date}`} className="border-b last:border-b-0">
-                            <td className="py-2" title={l.type === 'warmup' ? 'Warmup' : 'Routine'}>{l.type === 'warmup' ? '🔥' : '🏋️'}</td>
-                            <td className="py-2">{l.repsDone ?? l.reps ?? '-'}</td>
-                            <td className="py-2">{(l.weightUsed || l.weight || 0)} {l.weightUnit || 'lb'}</td>
-                            <td className="py-2">{(l.repsDone != null && l.weightUsed != null) ? `${l.repsDone} x ${l.weightUsed} ${l.weightUnit || 'lb'}` : (l.total !== undefined ? `${l.total} ${l.weightUnit || 'lb'}` : '-')}</td>
+                            <td className="py-1 text-center" title={l.type === 'warmup' ? 'Warmup' : 'Routine'}>{l.type === 'warmup' ? '🔥' : '🏋️'}</td>
+                            <td className="py-1 text-center">{l.repsDone ?? l.reps ?? '-'}</td>
+                            <td className="py-1 text-center">{(l.weightUsed || l.weight || 0)} {l.weightUnit || 'lb'}</td>
+                            <td className="py-1 text-center">{(l.repsDone != null && l.weightUsed != null) ? `${l.repsDone} x ${l.weightUsed} ${l.weightUnit || 'lb'}` : (l.total !== undefined ? `${l.total} ${l.weightUnit || 'lb'}` : '-')}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+                {exerciseTotal > EXERCISE_PAGE_SIZE && (
+                  <div className="col-span-2 flex items-center justify-between px-4 py-1 bg-gray-50 mt-4">
+                    <div className="text-sm text-slate-600">Mostrando {((exercisePage) * EXERCISE_PAGE_SIZE) + 1} - {Math.min((exercisePage + 1) * EXERCISE_PAGE_SIZE, exerciseTotal)} de {exerciseTotal} registros</div>
+                    <div className="flex items-center space-x-2">
+                      <button onClick={() => fetchExercisePage(Math.max(0, exercisePage - 1))} disabled={exercisePage === 0} aria-label="Anterior" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 18l-6-6 6-6v12z"/></svg>
+                      </button>
+                      <div className="flex items-center space-x-1">
+                        <span className="px-3 rounded bg-slate-900 text-white font-bold">{exercisePage + 1}/{totalPages}</span>
+                      </div>
+                      <button onClick={() => fetchExercisePage(Math.min(totalPages - 1, exercisePage + 1))} disabled={exercisePage + 1 >= totalPages} aria-label="Siguiente" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l6 6-6 6V6z"/></svg>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

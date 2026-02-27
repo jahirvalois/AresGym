@@ -14,11 +14,11 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const [exercisePageLogs, setExercisePageLogs] = useState<any[]>([]);
   const EXERCISE_PAGE_SIZE = 4;
   const [exerciseTotal, setExerciseTotal] = useState<number>(0);
-  const [logReps, setLogReps] = useState<number>(0);
-  const [logWeight, setLogWeight] = useState<number>(0);
+  const [logReps, setLogReps] = useState<string>('');
+  const [logWeight, setLogWeight] = useState<string>('');
   const [logType, setLogType] = useState<'warmup'|'routine'>('routine');
   const [showAddRow, setShowAddRow] = useState<boolean>(false);
-  const total = (logReps || 0) * (logWeight || 0);
+  const total = (Number(logReps) || 0) * (Number(logWeight) || 0);
   const [subState, setSubState] = useState<{state: SubscriptionState, message: string | null}>({ state: SubscriptionState.OK, message: null });
   const [isAlertDismissed, setIsAlertDismissed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,8 +51,8 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       setMediaLoading(true);
       setMediaError(false);
       // reset log inputs when opening an exercise
-      setLogReps(activeExercise.reps || 0);
-      setLogWeight(0);
+      setLogReps('');
+      setLogWeight('');
       setLogType('routine');
       setShowAddRow(false);
     }
@@ -99,10 +99,10 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       userId: currentUser.id,
       exerciseId: activeExercise.id,
       routineId: routine?.id || 'none',
-      weightUsed: logWeight || 0,
+      weightUsed: Number(logWeight) || 0,
       weightUnit: 'lb',
       total: total,
-      repsDone: logReps || 0,
+      repsDone: Number(logReps) || 0,
       rpe: 8,
       notes: 'Registro desde UI',
       type: logType
@@ -112,8 +112,8 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     // refresh current exercise page
     await fetchExercisePage(exercisePage);
     // keep modal open so user can add multiple records; reset inputs for next entry
-    setLogReps(0);
-    setLogWeight(0);
+    setLogReps('');
+    setLogWeight('');
     setLogType('routine');
     setShowAddRow(true);
   };
@@ -438,46 +438,47 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
 
             <div className="mt-4">
               <div className="flex justify-center mb-3">
-                <button onClick={() => { setLogReps(0); setLogWeight(0); setLogType('routine'); setShowAddRow(true); }} className="bg-primary text-white px-6 py-3 rounded-full font-black uppercase tracking-wider hover:opacity-90">Agregar registro</button>
+                    <button onClick={() => { setLogReps(''); setLogWeight(''); setLogType('routine'); setShowAddRow(true); }} className="bg-primary text-white px-6 py-3 rounded-full font-black uppercase tracking-wider hover:opacity-90">Agregar registro</button>
               </div>
               {showAddRow && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm table-fixed border-collapse">
                     <thead>
                       <tr className="text-left text-[11px] text-slate-500 border-b">
-                        <th className="py-2 w-1/4">Tipo</th>
-                        <th className="py-2 w-1/4">Reps</th>
+                        {/*<th className="py-2 w-1/4">Tipo</th>*/}
                         <th className="py-2 w-1/4">Peso (lb)</th>
-                        <th className="py-2 w-1/4">Total</th>
+                        <th className="py-2 w-1/4">Reps</th>
+                        {/*<th className="py-2 w-1/4">Total</th>*/}
                       </tr>
                     </thead>
                     <tbody>
                       <tr className="align-top">
-                        <td className="py-2 pr-2">
+                        {/*<td className="py-2 pr-2">
                           <select value={logType} onChange={e => setLogType(e.target.value as any)} className="w-full p-2 border rounded" aria-label="Tipo de registro">
                             <option value="routine" title="Routine">🏋️</option>
                             <option value="warmup" title="Warmup">🔥</option>
                           </select>
                         </td>
+                        */}
                         <td className="py-2 pr-2">
-                          <input type="number" value={logReps} onChange={e => setLogReps(Number(e.target.value))} className="w-full p-2 border rounded" />
+                          <input type="number" value={logWeight} onChange={e => setLogWeight(e.target.value)} placeholder="0" className="w-full p-2 border rounded" />
                         </td>
                         <td className="py-2 pr-2">
-                          <input type="number" value={logWeight} onChange={e => setLogWeight(Number(e.target.value))} className="w-full p-2 border rounded" />
+                          <input type="number" value={logReps} onChange={e => setLogReps(e.target.value)} placeholder="0" className="w-full p-2 border rounded" />
                         </td>
-                        <td className="py-2 pr-2">
+                        {/*<td className="py-2 pr-2">
                           <input type="text" value={`${logReps} x ${logWeight} lb`} readOnly className="w-full p-2 border rounded bg-slate-50" />
-                        </td>
+                        </td>*/}
                       </tr>
                     </tbody>
                   </table>
                   <div className="flex justify-end gap-2 mt-3">
-                    <button onClick={() => { setLogReps(0); setLogWeight(0); setLogType('routine'); setShowAddRow(false); }} className="px-4 py-2 rounded border">Cancelar</button>
+                    <button onClick={() => { setLogReps(''); setLogWeight(''); setLogType('routine'); setShowAddRow(false); }} className="px-4 py-2 rounded border">Cancelar</button>
                     <button
                       onClick={handleLogWorkout}
                       disabled={!(logReps > 0 && logWeight > 0)}
                       className={`px-4 py-2 rounded font-black ${logReps > 0 && logWeight > 0 ? 'bg-black text-primary hover:opacity-90' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                      Enviar
+                      Guardar
                     </button>
                   </div>
                 </div>
@@ -494,21 +495,29 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                     <table className="w-full text-sm">
                       <thead className="text-left text-[12px] text-slate-500 border-b sticky top-0 bg-white z-10">
                         <tr>
-                          <th className="py-1 text-center">Tipo</th>
+                          <th className="py-1 text-center">Serie</th>
+                          <th className="py-1 text-center">Peso (lb)</th>
                           <th className="py-1 text-center">Reps</th>
-                          <th className="py-1 text-center">Peso</th>
-                          <th className="py-1 text-center">Total</th>
+                          {/*<th className="py-1 text-center">Total</th>*/}
                         </tr>
                       </thead>
                       <tbody>
-                        {exerciseLogs.map((l: any) => (
-                          <tr key={l.id || l._id || `${l.exerciseId}-${l.date}`} className="border-b last:border-b-0">
-                            <td className="py-1 text-center" title={l.type === 'warmup' ? 'Warmup' : 'Routine'}>{l.type === 'warmup' ? '🔥' : '🏋️'}</td>
-                            <td className="py-1 text-center">{l.repsDone ?? l.reps ?? '-'}</td>
-                            <td className="py-1 text-center">{(l.weightUsed || l.weight || 0)} {l.weightUnit || 'lb'}</td>
-                            <td className="py-1 text-center">{(l.repsDone != null && l.weightUsed != null) ? `${l.repsDone} x ${l.weightUsed} ${l.weightUnit || 'lb'}` : (l.total !== undefined ? `${l.total} ${l.weightUnit || 'lb'}` : '-')}</td>
-                          </tr>
-                        ))}
+                        {exerciseLogs.map((l: any, idx: number) => {
+                          const indexInPage = idx;
+                          const skip = (exercisePage || 0) * EXERCISE_PAGE_SIZE;
+                          const seq = (typeof exerciseTotal === 'number' && exerciseTotal > 0)
+                            ? Math.max(1, exerciseTotal - (skip + indexInPage))
+                            : (skip + indexInPage + 1);
+
+                          return (
+                            <tr key={l.id || l._id || `${l.exerciseId}-${l.date}`} className="border-b last:border-b-0">
+                              <td className="py-1 text-center">{seq}</td>
+                              <td className="py-1 text-center">{(l.weightUsed || l.weight || 0)} {l.weightUnit || 'lb'}</td>
+                              <td className="py-1 text-center">{l.repsDone ?? l.reps ?? '-'}</td>
+                              {/*<td className="py-1 text-center">{(l.repsDone != null && l.weightUsed != null) ? `${l.repsDone} x ${l.weightUsed} ${l.weightUnit || 'lb'}` : (l.total !== undefined ? `${l.total} ${l.weightUnit || 'lb'}` : '-')}</td>*/}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

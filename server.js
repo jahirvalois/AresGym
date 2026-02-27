@@ -933,6 +933,79 @@ app.get('/api/audit', async (req, res) => {
   }
 });
 
+// Workout logs endpoints (GET by userId, POST new log)
+app.get('/api/logs', async (req, res) => {
+  try {
+    const userId = String(req.query.userId || '');
+    if (!userId) return res.status(400).json({ error: 'MISSING_USERID' });
+    const logs = await db.collection('logs').find({ userId }).sort({ date: -1 }).toArray();
+    return res.json(logs);
+  } catch (err) {
+    console.warn('Failed to read logs', err?.message || err);
+    return res.status(500).json({ error: err?.message || 'LOGS_READ_FAILED' });
+  }
+});
+
+app.post('/api/logs', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const { userId, exerciseId, routineId, weightUsed, weightUnit, repsDone, rpe, notes, type, total } = body;
+    if (!userId || !exerciseId) return res.status(400).json({ error: 'MISSING_FIELDS' });
+
+    // Validate that the exercise exists in an active routine for this user (if routineId provided, prefer that)
+    const routinesColl = db.collection('routines');
+    const query = (routineId && routineId !== 'none') ? { userId, id: routineId } : { userId, status: { $ne: 'ARCHIVED' } };
+    const routine = await routinesColl.findOne(query);
+    let allowed = false;
+    if (routine) {
+      try {
+        const weeks = routine.weeks || [];
+        for (const w of weeks) {
+          const days = w.days || [];
+          for (const d of days) {
+            const exercises = d.exercises || [];
+            for (const ex of exercises) {
+              const exId = (ex && (ex.id || ex._id || ex.name)) ? (ex.id || ex._id || ex.name) : ex;
+              if (!exId) continue;
+              if (String(exId) === String(exerciseId) || String(ex) === String(exerciseId)) { allowed = true; break; }
+            }
+            if (allowed) break;
+          }
+          if (allowed) break;
+        }
+      } catch (e) {
+        allowed = false;
+      }
+    }
+
+    if (!allowed) {
+      return res.status(403).json({ error: 'EXERCISE_NOT_ASSIGNED', message: 'El ejercicio no está asignado en la rutina del usuario.' });
+    }
+
+    const computedTotal = (typeof total === 'number') ? total : ((typeof weightUsed === 'number' && typeof repsDone === 'number') ? (weightUsed * repsDone) : undefined);
+
+    const doc = {
+      userId,
+      exerciseId,
+      routineId: routineId || null,
+      weightUsed: weightUsed || 0,
+      weightUnit: (weightUnit || 'lb'),
+      total: computedTotal,
+      repsDone: repsDone || 0,
+      rpe: rpe || null,
+      notes: notes || null,
+      type: type || 'routine',
+      date: new Date().toISOString()
+    };
+
+    const result = await db.collection('logs').insertOne(doc);
+    return res.status(201).json({ ...doc, _id: result.insertedId });
+  } catch (err) {
+    console.warn('Failed to insert log', err?.message || err);
+    return res.status(500).json({ error: err?.message || 'LOG_INSERT_FAILED' });
+  }
+});
+
 // Serve Swagger UI at /api-docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 

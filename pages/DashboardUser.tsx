@@ -16,11 +16,11 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const [exerciseTotal, setExerciseTotal] = useState<number>(0);
   const [logReps, setLogReps] = useState<string>('');
   const [logWeight, setLogWeight] = useState<string>('');
-  const [logType, setLogType] = useState<'warmup'|'routine'>('routine');
+ const [logType, setLogType] = useState<'warmup'|'routine'|'fail'|'drop-set'|'-'>('warmup');
   const [addingRow, setAddingRow] = useState<boolean>(false);
   const [addingReps, setAddingReps] = useState<string>('');
   const [addingWeight, setAddingWeight] = useState<string>('');
-  const [addingType, setAddingType] = useState<'warmup'|'routine'>('routine');
+  const [addingType, setAddingType] = useState<'warmup'|'routine'|'fail'|'drop-set'|'-'>('warmup');
   const [addingTypeOpen, setAddingTypeOpen] = useState<boolean>(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingWeight, setEditingWeight] = useState<string>('');
@@ -68,6 +68,20 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       setAddingWeight('');
     }
   }, [activeExercise]);
+
+  // Normalize various forms of id coming from server/local (id, _id string or {_id: {$oid}})
+  const getIdFromRow = (row: any) => {
+    if (!row) return '';
+    if (row.id) return String(row.id);
+    if (row._id) {
+      if (typeof row._id === 'object') {
+        return String(row._id.$oid || row._id.toString());
+      }
+      return String(row._id);
+    }
+    if (row.exerciseId && row.date) return `${row.exerciseId}-${row.date}`;
+    return '';
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -132,7 +146,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const startAddRow = () => {
     setAddingWeight('');
     setAddingReps('');
-    setAddingType('routine');
+    setAddingType('-');
     setAddingRow(true);
   };
 
@@ -169,8 +183,8 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   };
 
   const startEditRow = (row: any) => {
-    const id = row.id || row._id || `${row.exerciseId}-${row.date}`;
-    setEditingRowId(String(id));
+    const id = getIdFromRow(row);
+    setEditingRowId(id || null);
     setEditingWeight(String(row.weightUsed ?? row.weight ?? ''));
     setEditingReps(String(row.repsDone ?? row.reps ?? ''));
   };
@@ -201,8 +215,8 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   };
 
   const promptDelete = (row: any) => {
-    const id = row.id || row._id || `${row.exerciseId}-${row.date}`;
-    setDeleteTarget({ id: String(id), row });
+    const id = getIdFromRow(row);
+    setDeleteTarget({ id: id, row });
     setShowDeleteConfirm(true);
   };
 
@@ -569,22 +583,32 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                         <tbody>
                           {addingRow && (
                             <tr className="border-b bg-yellow-50">
-                              <td className="py-1 text-center">—</td>
+                              <td className="py-1 text-center">-</td>
                               <td className="py-1 text-center">
                                 <div className="relative inline-block" tabIndex={0} onBlur={() => setAddingTypeOpen(false)}>
                                     <button onClick={() => setAddingTypeOpen(o => !o)} aria-haspopup="listbox" aria-expanded={addingTypeOpen} className="flex items-center gap-2 px-3 py-1 border rounded">
-                                      <span className="text-xl">{addingType === 'warmup' ? '🔥' : '🏋️'}</span>
+                                      <span className="text-xl font-bold">{addingType === 'warmup' ? 'W' : addingType === 'routine' ? 'R' : addingType === 'fail' ? 'F' : addingType === 'drop-set' ? 'D' : '-'}</span>
                                   </button>
                                   {addingTypeOpen && (
-                                    <ul role="listbox" className="absolute left-0 mt-2 w-36 bg-white border rounded shadow-lg z-50">
+                                    <ul role="listbox" className="absolute left-0 mt-2 w-13 bg-white border rounded shadow-lg z-50">
                                       <li>
-                                        <button onMouseDown={(e) => { e.preventDefault(); setAddingType('routine'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50">
-                                          <span className="text-xl">🏋️</span>
+                                        <button onMouseDown={(e) => { e.preventDefault(); setAddingType('routine'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
+                                          <span className="text-xl font-bold">R</span>
                                         </button>
                                       </li>
                                       <li>
-                                        <button onMouseDown={(e) => { e.preventDefault(); setAddingType('warmup'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50">
-                                          <span className="text-xl">🔥</span>
+                                        <button onMouseDown={(e) => { e.preventDefault(); setAddingType('warmup'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
+                                          <span className="text-xl font-bold">W</span>
+                                        </button>
+                                      </li>
+                                      <li>
+                                        <button onMouseDown={(e) => { e.preventDefault(); setAddingType('fail'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
+                                          <span className="text-xl font-bold">F</span>
+                                        </button>
+                                      </li>
+                                      <li>
+                                        <button onMouseDown={(e) => { e.preventDefault(); setAddingType('drop-set'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
+                                          <span className="text-xl font-bold">D</span>
                                         </button>
                                       </li>
                                     </ul>
@@ -616,17 +640,22 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                             ? Math.max(1, exerciseTotal - (skip + indexInPage))
                             : (skip + indexInPage + 1);
 
-                            const rowId = l.id || l._id || `${l.exerciseId}-${l.date}`;
-                            const isEditing = String(editingRowId) === String(rowId);
-
+                            const normalizedRowId = (l.id) || (l._id && (typeof l._id === 'object' ? (l._id.$oid || String(l._id)) : String(l._id))) || `${l.exerciseId}-${l.date}`;
+                            const isEditing = String(editingRowId) === String(normalizedRowId);
                             return (
-                              <tr key={rowId} className="border-b last:border-b-0">
+                              <tr key={normalizedRowId} className="border-b last:border-b-0">
                                 <td className="py-1 text-center">{seq}</td>
                                 <td className="py-1 text-center">
                                   {l.type === 'warmup' ? (
-                                    <span className="text-xl">🔥</span>
+                                    <span className="text-xl font-bold">W</span>
+                                  ) : l.type === 'routine' ? (
+                                    <span className="text-xl font-bold">R</span>
+                                  ) : l.type === 'fail' ? (
+                                    <span className="text-xl font-bold">F</span>
+                                  ) : l.type === 'drop-set' ? (
+                                    <span className="text-xl font-bold">D</span>
                                   ) : (
-                                    <span className="text-xl">🏋️</span>
+                                    <span className="text-xl font-bold">-</span>
                                   )}
                                 </td>
                                 <td className="py-1 text-center">

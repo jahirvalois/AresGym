@@ -1046,6 +1046,55 @@ app.post('/api/logs', async (req, res) => {
   }
 });
 
+// Support PATCH and DELETE for individual logs by id (ObjectId or custom id field)
+app.patch('/api/logs/:id', async (req, res) => {
+  try {
+    const idParam = String(req.params.id || '');
+    const updates = req.body || {};
+    if (updates.weightUsed != null) updates.weightUsed = Number(updates.weightUsed);
+    if (updates.repsDone != null) updates.repsDone = Number(updates.repsDone);
+    if (updates.total != null) updates.total = Number(updates.total);
+
+    let updated = null;
+    if (ObjectId.isValid(idParam)) {
+      const objId = new ObjectId(idParam);
+      const r = await db.collection('logs').updateOne({ _id: objId }, { $set: updates });
+      if (r && r.matchedCount && r.matchedCount > 0) {
+        updated = await db.collection('logs').findOne({ _id: objId });
+      }
+    }
+
+    if (!updated) {
+      const r2 = await db.collection('logs').updateOne({ id: idParam }, { $set: updates });
+      if (r2 && r2.matchedCount && r2.matchedCount > 0) {
+        updated = await db.collection('logs').findOne({ id: idParam });
+      }
+    }
+
+    if (updated) return res.json(updated);
+    return res.status(404).json({ error: 'NOT_FOUND' });
+  } catch (err) {
+    console.warn('Failed to patch log', err?.message || err);
+    return res.status(500).json({ error: err?.message || 'LOG_UPDATE_FAILED' });
+  }
+});
+
+app.delete('/api/logs/:id', async (req, res) => {
+  try {
+    const idParam = String(req.params.id || '');
+    if (ObjectId.isValid(idParam)) {
+      const r = await db.collection('logs').deleteOne({ _id: new ObjectId(idParam) });
+      if (r && r.deletedCount && r.deletedCount > 0) return res.status(204).send();
+    }
+    const r2 = await db.collection('logs').deleteOne({ id: idParam });
+    if (r2 && r2.deletedCount && r2.deletedCount > 0) return res.status(204).send();
+    return res.status(404).json({ error: 'NOT_FOUND' });
+  } catch (err) {
+    console.warn('Failed to delete log', err?.message || err);
+    return res.status(500).json({ error: err?.message || 'LOG_DELETE_FAILED' });
+  }
+});
+
 // Serve Swagger UI at /api-docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 

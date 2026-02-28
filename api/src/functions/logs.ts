@@ -79,15 +79,44 @@ export async function logsHandler(request: HttpRequest, context: InvocationConte
             if (updates.weightUsed != null) updates.weightUsed = Number(updates.weightUsed);
             if (updates.repsDone != null) updates.repsDone = Number(updates.repsDone);
             if (updates.total != null) updates.total = Number(updates.total);
-            await collection.updateOne({ _id: new ObjectId(id) }, { $set: updates });
-            const updated = await collection.findOne({ _id: new ObjectId(id) });
+
+            // Try update by ObjectId first; if not valid or no match, try by 'id' field
+            let updated: any = null;
+            try {
+                const objId = new ObjectId(id);
+                const r = await collection.updateOne({ _id: objId }, { $set: updates });
+                if (r && r.matchedCount && r.matchedCount > 0) {
+                    updated = await collection.findOne({ _id: objId });
+                }
+            } catch (e) {
+                // invalid ObjectId, fall through to id-field attempt
+            }
+
+            if (!updated) {
+                const r2 = await collection.updateOne({ id: id }, { $set: updates });
+                if (r2 && r2.matchedCount && r2.matchedCount > 0) {
+                    updated = await collection.findOne({ id: id });
+                }
+            }
+
             if (updated) return { status: 200, jsonBody: updated };
             return { status: 404, jsonBody: { error: 'NOT_FOUND' } };
         }
 
         if (request.method === 'DELETE') {
-            await collection.deleteOne({ _id: new ObjectId(id) });
-            return { status: 204 };
+            // Try delete by ObjectId; if invalid or no match, try delete by 'id' field
+            try {
+                const objId = new ObjectId(id);
+                const r = await collection.deleteOne({ _id: objId });
+                if (r && r.deletedCount && r.deletedCount > 0) return { status: 204 };
+            } catch (e) {
+                // invalid ObjectId, fall through
+            }
+
+            const r2 = await collection.deleteOne({ id: id });
+            if (r2 && r2.deletedCount && r2.deletedCount > 0) return { status: 204 };
+
+            return { status: 404, jsonBody: { error: 'NOT_FOUND' } };
         }
     }
 

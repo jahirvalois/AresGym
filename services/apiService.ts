@@ -271,6 +271,31 @@ export const apiService = {
     }
   },
 
+  async updateLog(id: string, updates: Partial<WorkoutLog>) {
+    try {
+      return await request<WorkoutLog>(`/logs/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates)
+      });
+    } catch {
+      const logs = getLocal('logs', []);
+      const updated = logs.map((l: any) => (String(l.id) === String(id) ? { ...l, ...updates } : l));
+      saveLocal('logs', updated);
+      return updated.find((l: any) => String(l.id) === String(id));
+    }
+  },
+
+  async deleteLog(id: string) {
+    try {
+      await request<void>(`/logs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      return true;
+    } catch {
+      const logs = getLocal('logs', []);
+      saveLocal('logs', logs.filter((l: any) => String(l.id) !== String(id)));
+      return true;
+    }
+  },
+
   async getAuditLogs() {
     try { return await request<AuditLog[]>('/audit'); } catch { return getLocal('audit', []); }
   },

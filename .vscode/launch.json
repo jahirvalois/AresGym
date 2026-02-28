@@ -7,17 +7,31 @@
       "name": "Attach to Ares backend",
       "port": 9229,
       "restart": false,
-      "skipFiles": ["<node_internals>/**"]
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
     },
     {
       "type": "node",
       "request": "launch",
       "name": "Launch Ares backend (with inspector)",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["--inspect=9229"],
+      "runtimeArgs": [
+        "--inspect=9229"
+      ],
       "program": "${workspaceFolder}/server.js",
       "cwd": "${workspaceFolder}",
-      "skipFiles": ["<node_internals>/**"]
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "Attach to Node Functions",
+      "type": "node",
+      "request": "attach",
+      "restart": true,
+      "port": 9229,
+      "preLaunchTask": "func: host start"
     }
   ]
 }

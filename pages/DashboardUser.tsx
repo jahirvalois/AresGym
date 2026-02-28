@@ -17,7 +17,16 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const [logReps, setLogReps] = useState<string>('');
   const [logWeight, setLogWeight] = useState<string>('');
   const [logType, setLogType] = useState<'warmup'|'routine'>('routine');
-  const [showAddRow, setShowAddRow] = useState<boolean>(false);
+  const [addingRow, setAddingRow] = useState<boolean>(false);
+  const [addingReps, setAddingReps] = useState<string>('');
+  const [addingWeight, setAddingWeight] = useState<string>('');
+  const [addingType, setAddingType] = useState<'warmup'|'routine'>('routine');
+  const [addingTypeOpen, setAddingTypeOpen] = useState<boolean>(false);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editingWeight, setEditingWeight] = useState<string>('');
+  const [editingReps, setEditingReps] = useState<string>('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const total = (Number(logReps) || 0) * (Number(logWeight) || 0);
   const [subState, setSubState] = useState<{state: SubscriptionState, message: string | null}>({ state: SubscriptionState.OK, message: null });
   const [isAlertDismissed, setIsAlertDismissed] = useState(false);
@@ -54,7 +63,9 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       setLogReps('');
       setLogWeight('');
       setLogType('routine');
-      setShowAddRow(false);
+      setAddingRow(false);
+      setAddingReps('');
+      setAddingWeight('');
     }
   }, [activeExercise]);
 
@@ -115,7 +126,103 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     setLogReps('');
     setLogWeight('');
     setLogType('routine');
-    setShowAddRow(true);
+    setAddingRow(false);
+  };
+
+  const startAddRow = () => {
+    setAddingWeight('');
+    setAddingReps('');
+    setAddingType('routine');
+    setAddingRow(true);
+  };
+
+  const cancelAddRow = () => {
+    setAddingRow(false);
+    setAddingWeight('');
+    setAddingReps('');
+  };
+
+  const saveNewRow = async () => {
+    if (!activeExercise) return;
+    if (!(Number(addingWeight) > 0 && Number(addingReps) > 0)) return;
+    try {
+      await apiService.addLog({
+        userId: currentUser.id,
+        exerciseId: activeExercise.id,
+        routineId: routine?.id || 'none',
+        weightUsed: Number(addingWeight) || 0,
+        weightUnit: 'lb',
+        total: (Number(addingWeight) || 0) * (Number(addingReps) || 0),
+        repsDone: Number(addingReps) || 0,
+        rpe: 8,
+        notes: 'Registro desde UI',
+        type: addingType
+      });
+      const updatedLogs = await apiService.getLogs(currentUser.id);
+      setLogs(updatedLogs);
+      await fetchExercisePage(exercisePage);
+    } finally {
+      setAddingRow(false);
+      setAddingWeight('');
+      setAddingReps('');
+    }
+  };
+
+  const startEditRow = (row: any) => {
+    const id = row.id || row._id || `${row.exerciseId}-${row.date}`;
+    setEditingRowId(String(id));
+    setEditingWeight(String(row.weightUsed ?? row.weight ?? ''));
+    setEditingReps(String(row.repsDone ?? row.reps ?? ''));
+  };
+
+  const cancelEditRow = () => {
+    setEditingRowId(null);
+    setEditingWeight('');
+    setEditingReps('');
+  };
+
+  const saveEditRow = async () => {
+    if (!editingRowId) return;
+    if (!(Number(editingWeight) >= 0 && Number(editingReps) >= 0)) return;
+    try {
+      await apiService.updateLog(editingRowId, {
+        weightUsed: Number(editingWeight) || 0,
+        repsDone: Number(editingReps) || 0,
+        total: (Number(editingWeight) || 0) * (Number(editingReps) || 0),
+      } as any);
+      const updatedLogs = await apiService.getLogs(currentUser.id);
+      setLogs(updatedLogs);
+      await fetchExercisePage(exercisePage);
+    } finally {
+      setEditingRowId(null);
+      setEditingWeight('');
+      setEditingReps('');
+    }
+  };
+
+  const promptDelete = (row: any) => {
+    const id = row.id || row._id || `${row.exerciseId}-${row.date}`;
+    setDeleteTarget({ id: String(id), row });
+    setShowDeleteConfirm(true);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setDeleteTarget(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await apiService.deleteLog(String(deleteTarget.id));
+      const updatedLogs = await apiService.getLogs(currentUser.id);
+      setLogs(updatedLogs);
+      await fetchExercisePage(exercisePage);
+    } catch (e) {
+      // ignore
+    }
+    setShowDeleteConfirm(false);
+    setDeleteTarget(null);
   };
 
   const handleConfirmConquest = async () => {
@@ -438,93 +545,151 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
 
             <div className="mt-4">
               <div className="flex justify-center mb-3">
-                    <button onClick={() => { setLogReps(''); setLogWeight(''); setLogType('routine'); setShowAddRow(true); }} className="bg-primary text-white px-6 py-3 rounded-full font-black uppercase tracking-wider hover:opacity-90">Agregar registro</button>
+                    <button onClick={() => { setLogReps(''); setLogWeight(''); setLogType('routine'); startAddRow(); }} className="bg-primary text-white px-6 py-3 rounded-full font-black uppercase tracking-wider hover:opacity-90">Agregar registro</button>
               </div>
-              {showAddRow && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm table-fixed border-collapse">
-                    <thead>
-                      <tr className="text-left text-[11px] text-slate-500 border-b">
-                        {/*<th className="py-2 w-1/4">Tipo</th>*/}
-                        <th className="py-2 w-1/4">Peso (lb)</th>
-                        <th className="py-2 w-1/4">Reps</th>
-                        {/*<th className="py-2 w-1/4">Total</th>*/}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="align-top">
-                        {/*<td className="py-2 pr-2">
-                          <select value={logType} onChange={e => setLogType(e.target.value as any)} className="w-full p-2 border rounded" aria-label="Tipo de registro">
-                            <option value="routine" title="Routine">🏋️</option>
-                            <option value="warmup" title="Warmup">🔥</option>
-                          </select>
-                        </td>
-                        */}
-                        <td className="py-2 pr-2">
-                          <input type="number" value={logWeight} onChange={e => setLogWeight(e.target.value)} placeholder="0" className="w-full p-2 border rounded" />
-                        </td>
-                        <td className="py-2 pr-2">
-                          <input type="number" value={logReps} onChange={e => setLogReps(e.target.value)} placeholder="0" className="w-full p-2 border rounded" />
-                        </td>
-                        {/*<td className="py-2 pr-2">
-                          <input type="text" value={`${logReps} x ${logWeight} lb`} readOnly className="w-full p-2 border rounded bg-slate-50" />
-                        </td>*/}
-                      </tr>
-                    </tbody>
-                  </table>
-                  <div className="flex justify-end gap-2 mt-3">
-                    <button onClick={() => { setLogReps(''); setLogWeight(''); setLogType('routine'); setShowAddRow(false); }} className="px-4 py-2 rounded border">Cancelar</button>
-                    <button
-                      onClick={handleLogWorkout}
-                      disabled={!(logReps > 0 && logWeight > 0)}
-                      className={`px-4 py-2 rounded font-black ${logReps > 0 && logWeight > 0 ? 'bg-black text-primary hover:opacity-90' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                      Guardar
-                    </button>
-                  </div>
-                </div>
-              )}
               {/* Historial de Registros (moved inside modal below add fields) */}
-              <div className="mt-6 bg-white p-2 rounded-lg shadow-inner border">
+              <div className="mt-10 bg-white p-2 rounded-lg shadow-inner border">
                   <div className="flex items-center justify-center mb-2">
                       <h4 className="font-black uppercase text-sm text-slate-600 text-center w-full">Historial de Registros</h4>
                     </div>
                 {exerciseLogs.length === 0 ? (
                   <div className="text-[13px] text-slate-400">Aún no hay registros en esta página para este ejercicio.</div>
                 ) : (
-                  <div className="w-full overflow-y-auto overflow-x-auto max-h-44">
+                  <div className="w-full overflow-y-auto overflow-x-auto max-h-55">
                     <table className="w-full text-sm">
                       <thead className="text-left text-[12px] text-slate-500 border-b sticky top-0 bg-white z-10">
-                        <tr>
-                          <th className="py-1 text-center">Serie</th>
-                          <th className="py-1 text-center">Peso (lb)</th>
-                          <th className="py-1 text-center">Reps</th>
-                          {/*<th className="py-1 text-center">Total</th>*/}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {exerciseLogs.map((l: any, idx: number) => {
+                          <tr>
+                            <th className="py-1 text-center">Serie</th>
+                            <th className="py-1 text-center">Tipo</th>
+                            <th className="py-1 text-center">Peso (lb)</th>
+                            <th className="py-1 text-center">Reps</th>
+                            <th className="py-1 text-center">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {addingRow && (
+                            <tr className="border-b bg-yellow-50">
+                              <td className="py-1 text-center">—</td>
+                              <td className="py-1 text-center">
+                                <div className="relative inline-block" tabIndex={0} onBlur={() => setAddingTypeOpen(false)}>
+                                    <button onClick={() => setAddingTypeOpen(o => !o)} aria-haspopup="listbox" aria-expanded={addingTypeOpen} className="flex items-center gap-2 px-3 py-1 border rounded">
+                                      <span className="text-xl">{addingType === 'warmup' ? '🔥' : '🏋️'}</span>
+                                  </button>
+                                  {addingTypeOpen && (
+                                    <ul role="listbox" className="absolute left-0 mt-2 w-36 bg-white border rounded shadow-lg z-50">
+                                      <li>
+                                        <button onMouseDown={(e) => { e.preventDefault(); setAddingType('routine'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50">
+                                          <span className="text-xl">🏋️</span>
+                                        </button>
+                                      </li>
+                                      <li>
+                                        <button onMouseDown={(e) => { e.preventDefault(); setAddingType('warmup'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50">
+                                          <span className="text-xl">🔥</span>
+                                        </button>
+                                      </li>
+                                    </ul>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-1 text-center">
+                                <input type="number" value={addingWeight} onChange={e => setAddingWeight(e.target.value)} placeholder="0" className="w-20 p-1 border rounded text-center mx-auto" />
+                              </td>
+                              <td className="py-1 text-center">
+                                <input type="number" value={addingReps} onChange={e => setAddingReps(e.target.value)} placeholder="0" className="w-20 p-1 border rounded text-center mx-auto" />
+                              </td>
+                              <td className="py-1 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button onClick={saveNewRow} disabled={!(Number(addingWeight) > 0 && Number(addingReps) > 0)} aria-label="Guardar nuevo registro" className={`p-2 rounded font-black ${Number(addingWeight) > 0 && Number(addingReps) > 0 ? 'bg-black text-primary' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
+                                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M5 10l3 3L18 3" /></svg>
+                                  </button>
+                                  <button onClick={cancelAddRow} aria-label="Cancelar nuevo registro" className="p-2 rounded border">
+                                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 6l8 8M6 14L14 6" /></svg>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          {exerciseLogs.map((l: any, idx: number) => {
                           const indexInPage = idx;
                           const skip = (exercisePage || 0) * EXERCISE_PAGE_SIZE;
                           const seq = (typeof exerciseTotal === 'number' && exerciseTotal > 0)
                             ? Math.max(1, exerciseTotal - (skip + indexInPage))
                             : (skip + indexInPage + 1);
 
-                          return (
-                            <tr key={l.id || l._id || `${l.exerciseId}-${l.date}`} className="border-b last:border-b-0">
-                              <td className="py-1 text-center">{seq}</td>
-                              <td className="py-1 text-center">{(l.weightUsed || l.weight || 0)} {l.weightUnit || 'lb'}</td>
-                              <td className="py-1 text-center">{l.repsDone ?? l.reps ?? '-'}</td>
-                              {/*<td className="py-1 text-center">{(l.repsDone != null && l.weightUsed != null) ? `${l.repsDone} x ${l.weightUsed} ${l.weightUnit || 'lb'}` : (l.total !== undefined ? `${l.total} ${l.weightUnit || 'lb'}` : '-')}</td>*/}
-                            </tr>
-                          );
+                            const rowId = l.id || l._id || `${l.exerciseId}-${l.date}`;
+                            const isEditing = String(editingRowId) === String(rowId);
+
+                            return (
+                              <tr key={rowId} className="border-b last:border-b-0">
+                                <td className="py-1 text-center">{seq}</td>
+                                <td className="py-1 text-center">
+                                  {l.type === 'warmup' ? (
+                                    <span className="text-xl">🔥</span>
+                                  ) : (
+                                    <span className="text-xl">🏋️</span>
+                                  )}
+                                </td>
+                                <td className="py-1 text-center">
+                                  {isEditing ? (
+                                    <input type="number" value={editingWeight} onChange={e => setEditingWeight(e.target.value)} className="w-20 p-1 border rounded text-center mx-auto" />
+                                  ) : (
+                                    <>{l.weightUsed ?? l.weight ?? '-'}</>
+                                  )}
+                                </td>
+                                <td className="py-1 text-center">
+                                  {isEditing ? (
+                                    <input type="number" value={editingReps} onChange={e => setEditingReps(e.target.value)} className="w-16 p-1 border rounded text-center mx-auto" />
+                                  ) : (
+                                    <>{l.repsDone ?? l.reps ?? '-'}</>
+                                  )}
+                                </td>
+                                <td className="py-1 text-center">
+                                  {isEditing ? (
+                                    <div className="flex items-center justify-center gap-2">
+                                      <button onClick={saveEditRow} aria-label="Guardar cambios" className={`p-2 rounded ${Number(editingWeight) >= 0 && Number(editingReps) >= 0 ? 'bg-black text-primary' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`} disabled={!(Number(editingWeight) >= 0 && Number(editingReps) >= 0)}>
+                                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M5 10l3 3L18 3" /></svg>
+                                      </button>
+                                      <button onClick={cancelEditRow} aria-label="Cancelar edición" className="p-2 rounded border">
+                                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 6l8 8M6 14L14 6" /></svg>
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-center gap-2">
+                                      <button onClick={() => startEditRow(l)} aria-label="Editar registro" className="p-2 rounded hover:bg-slate-100">
+                                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M11 5l7 7M16 2l2 2-9 9H7v-2L16 2z" /></svg>
+                                      </button>
+                                      <button onClick={() => promptDelete(l)} aria-label="Eliminar registro" className="p-2 rounded hover:bg-red-50 text-red-600">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2M4 7h16" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
                         })}
                       </tbody>
                     </table>
                   </div>
                 )}
+                {/* Delete confirmation modal */}
+                {showDeleteConfirm && deleteTarget && (
+                  <div className="fixed inset-0 z-[260] flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/50" onClick={cancelDelete}></div>
+                    <div className="bg-white rounded-[1rem] p-6 shadow-2xl z-20 w-full max-w-sm">
+                      <h4 className="font-black uppercase text-sm text-slate-600 mb-2">Confirmar eliminación</h4>
+                      <p className="text-sm text-slate-700 mb-4">¿Eliminar registro de <strong>{deleteTarget.row?.repsDone ?? deleteTarget.row?.reps ?? ''}</strong> reps y <strong>{deleteTarget.row?.weightUsed ?? deleteTarget.row?.weight ?? ''}</strong> lb?</p>
+                      <div className="flex justify-end gap-3">
+                        <button onClick={cancelDelete} className="px-4 py-2 rounded border">Cancelar</button>
+                        <button onClick={confirmDelete} className="px-4 py-2 rounded bg-red-600 text-white font-black">Eliminar</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {exerciseTotal > EXERCISE_PAGE_SIZE && (
-                  <div className="col-span-2 flex items-center justify-between px-4 py-1 bg-gray-50 mt-4">
-                    <div className="text-sm text-slate-600">Mostrando {((exercisePage) * EXERCISE_PAGE_SIZE) + 1} - {Math.min((exercisePage + 1) * EXERCISE_PAGE_SIZE, exerciseTotal)} de {exerciseTotal} registros</div>
+                  <div className="col-span-2 flex items-center justify-center px-4 py-1 bg-gray-50 mt-4">
+                    {/*<div className="text-sm text-slate-600">Mostrando {((exercisePage) * EXERCISE_PAGE_SIZE) + 1} - {Math.min((exercisePage + 1) * EXERCISE_PAGE_SIZE, exerciseTotal)} de {exerciseTotal} registros</div>*/}
                     <div className="flex items-center space-x-2">
                       <button onClick={() => fetchExercisePage(Math.max(0, exercisePage - 1))} disabled={exercisePage === 0} aria-label="Anterior" className="px-3 py-1 bg-white border rounded disabled:opacity-50">
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 18l-6-6 6-6v12z"/></svg>

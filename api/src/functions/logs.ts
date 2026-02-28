@@ -69,12 +69,41 @@ export async function logsHandler(request: HttpRequest, context: InvocationConte
         return { status: 201, jsonBody: { ...doc, _id: result.insertedId } };
     }
 
+    // Rutas con ID (PATCH / DELETE)
+    const id = request.params?.id;
+    if (id) {
+        if (request.method === 'PATCH') {
+            const body: any = await request.json();
+            const updates = body;
+            // normalize numeric fields if present
+            if (updates.weightUsed != null) updates.weightUsed = Number(updates.weightUsed);
+            if (updates.repsDone != null) updates.repsDone = Number(updates.repsDone);
+            if (updates.total != null) updates.total = Number(updates.total);
+            await collection.updateOne({ _id: new ObjectId(id) }, { $set: updates });
+            const updated = await collection.findOne({ _id: new ObjectId(id) });
+            if (updated) return { status: 200, jsonBody: updated };
+            return { status: 404, jsonBody: { error: 'NOT_FOUND' } };
+        }
+
+        if (request.method === 'DELETE') {
+            await collection.deleteOne({ _id: new ObjectId(id) });
+            return { status: 204 };
+        }
+    }
+
     return { status: 405 };
 }
 
 app.http('logs', {
     methods: ['GET', 'POST'],
     route: 'logs',
+    authLevel: 'anonymous',
+    handler: logsHandler
+});
+
+app.http('logsById', {
+    methods: ['PATCH', 'DELETE'],
+    route: 'logs/{id}',
     authLevel: 'anonymous',
     handler: logsHandler
 });

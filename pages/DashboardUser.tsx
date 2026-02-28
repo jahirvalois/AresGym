@@ -570,7 +570,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                   <div className="text-[13px] text-slate-400">Aún no hay registros en esta página para este ejercicio.</div>
                 ) : (
                   <div className="w-full overflow-y-auto overflow-x-auto max-h-55">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm bg-gray-100">
                       <thead className="text-left text-[12px] text-slate-500 border-b sticky top-0 bg-white z-10">
                           <tr>
                             <th className="py-1 text-center">Serie</th>
@@ -587,28 +587,28 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                               <td className="py-1 text-center">
                                 <div className="relative inline-block" tabIndex={0} onBlur={() => setAddingTypeOpen(false)}>
                                     <button onClick={() => setAddingTypeOpen(o => !o)} aria-haspopup="listbox" aria-expanded={addingTypeOpen} className="flex items-center gap-2 px-3 py-1 border rounded">
-                                      <span className="text-xl font-bold">{addingType === 'warmup' ? 'W' : addingType === 'routine' ? 'R' : addingType === 'fail' ? 'F' : addingType === 'drop-set' ? 'D' : '-'}</span>
+                                      <span className={"text-xl font-bold " + (addingType === 'warmup' ? 'text-amber-600' : addingType === 'routine' ? 'text-blue-600' : addingType === 'fail' ? 'text-red-600' : addingType === 'drop-set' ? 'text-green-600' : 'text-slate-900')}>{addingType === 'warmup' ? 'W' : addingType === 'routine' ? 'R' : addingType === 'fail' ? 'F' : addingType === 'drop-set' ? 'D' : '-'}</span>
                                   </button>
                                   {addingTypeOpen && (
                                     <ul role="listbox" className="absolute left-0 mt-2 w-13 bg-white border rounded shadow-lg z-50">
                                       <li>
                                         <button onMouseDown={(e) => { e.preventDefault(); setAddingType('routine'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
-                                          <span className="text-xl font-bold">R</span>
+                                          <span className="text-xl font-bold text-blue-600">R</span>
                                         </button>
                                       </li>
                                       <li>
                                         <button onMouseDown={(e) => { e.preventDefault(); setAddingType('warmup'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
-                                          <span className="text-xl font-bold">W</span>
+                                          <span className="text-xl font-bold text-amber-600">W</span>
                                         </button>
                                       </li>
                                       <li>
                                         <button onMouseDown={(e) => { e.preventDefault(); setAddingType('fail'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
-                                          <span className="text-xl font-bold">F</span>
+                                          <span className="text-xl font-bold text-red-600">F</span>
                                         </button>
                                       </li>
                                       <li>
                                         <button onMouseDown={(e) => { e.preventDefault(); setAddingType('drop-set'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
-                                          <span className="text-xl font-bold">D</span>
+                                          <span className="text-xl font-bold text-green-600">D</span>
                                         </button>
                                       </li>
                                     </ul>
@@ -647,13 +647,13 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                                 <td className="py-1 text-center">{seq}</td>
                                 <td className="py-1 text-center">
                                   {l.type === 'warmup' ? (
-                                    <span className="text-xl font-bold">W</span>
+                                    <span className="text-xl font-bold text-amber-600">W</span>
                                   ) : l.type === 'routine' ? (
-                                    <span className="text-xl font-bold">R</span>
+                                    <span className="text-xl font-bold text-blue-600">R</span>
                                   ) : l.type === 'fail' ? (
-                                    <span className="text-xl font-bold">F</span>
+                                    <span className="text-xl font-bold text-red-600">F</span>
                                   ) : l.type === 'drop-set' ? (
-                                    <span className="text-xl font-bold">D</span>
+                                    <span className="text-xl font-bold text-green-600">D</span>
                                   ) : (
                                     <span className="text-xl font-bold">-</span>
                                   )}

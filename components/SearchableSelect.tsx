@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import LazyImage from './LazyImage';
 
 interface Option {
   value: string;
   label: string;
+  category?: string;
+  media?: string;
 }
 
 interface Props {
@@ -21,7 +24,16 @@ export const SearchableSelect: React.FC<Props> = ({ options, value = null, place
 
   const filtered = query.trim() === ''
     ? options
-    : options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()));
+    : options.filter(o => (o.label || '').toLowerCase().includes(query.toLowerCase()) || (o.category || '').toLowerCase().includes(query.toLowerCase()));
+
+  const getInitials = (label: string) => {
+    if (!label) return '';
+    const main = String(label).split(' · ')[0];
+    const parts = main.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+    return (parts[0][0] + (parts[1][0] || '')).toUpperCase();
+  };
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -74,11 +86,11 @@ export const SearchableSelect: React.FC<Props> = ({ options, value = null, place
       />
 
       {open && (
-        <ul role="listbox" className="absolute z-40 left-0 right-0 mt-2 max-h-56 overflow-auto bg-white border rounded-lg shadow-lg">
+        <ul role="listbox" className="absolute z-40 left-0 right-0 mt-2 max-h-80 overflow-auto bg-white border rounded-lg shadow-lg">
           {filtered.length === 0 && (
             <li className="p-3 text-sm text-slate-500">No results</li>
           )}
-          {filtered.map((opt, i) => (
+                  {filtered.map((opt, i) => (
             <li
               key={opt.value}
               role="option"
@@ -87,7 +99,19 @@ export const SearchableSelect: React.FC<Props> = ({ options, value = null, place
               onMouseEnter={() => setHighlight(i)}
               className={`px-3 py-2 cursor-pointer text-sm ${i === highlight ? 'bg-slate-100' : ''} ${value === opt.value ? 'font-bold' : ''}`}
             >
-              {opt.label}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {opt.media ? (
+                    <LazyImage src={opt.media} alt={String(opt.label)} className="w-10 h-10" />
+                  ) : (
+                    <div className="w-10 h-10 flex-shrink-0 rounded bg-slate-100 flex items-center justify-center text-xs font-black uppercase">{getInitials(opt.label)}</div>
+                  )}
+                  <div className="flex-1">
+                    <div className="text-sm">{opt.label}</div>
+                  </div>
+                </div>
+                <div className="text-xs text-slate-500 text-right ml-4">{opt.category || ''}</div>
+              </div>
             </li>
           ))}
         </ul>

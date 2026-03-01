@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { apiService } from '../services/apiService';
 import { MonthlyRoutine, User } from '../types';
+import { SearchableSelect } from '../components/SearchableSelect';
+import LazyImage from '../components/LazyImage';
 
 const DashboardAlone: React.FC<{ currentUser: User }> = ({ currentUser }) => {
   const [routines, setRoutines] = useState<MonthlyRoutine[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
-  // menu / generator state
-  const [template, setTemplate] = useState<'full' | 'upperlower' | 'ppl'>('full');
-  const [weeksCount, setWeeksCount] = useState<number>(4);
-  const [daysPerWeek, setDaysPerWeek] = useState<number>(3);
+  // menu state
 
   const load = async () => {
     setLoading(true);
@@ -23,6 +22,30 @@ const DashboardAlone: React.FC<{ currentUser: User }> = ({ currentUser }) => {
       setLoading(false);
     }
   };
+
+  // load exercise bank for search options (include media and trimmed category)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const bank = await apiService.getExerciseBank();
+        const mediaMap = await apiService.getAllExerciseMedia();
+        // flatten into options with category and media
+        const opts: {value: string; label: string; category?: string; media?: string}[] = [];
+        for (const cat of Object.keys(bank || {})) {
+          const items = bank[cat] || [];
+          const catTrim = String(cat || '').replace(/^RUTINA DE\s+/i, '').trim();
+          for (const ex of items) {
+            opts.push({ value: ex, label: ex, category: catTrim, media: mediaMap ? (mediaMap[ex] || '') : '' });
+          }
+        }
+        if (mounted) setExerciseOptions(opts as any);
+      } catch (e) {
+        if (mounted) setExerciseOptions([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   useEffect(() => { load(); }, []);
 
@@ -48,51 +71,40 @@ const DashboardAlone: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     }
   };
 
-  const generateRoutine = async (e?: React.FormEvent) => {
-    if (e && typeof (e as any).preventDefault === 'function') (e as any).preventDefault();
-    setLoading(true);
-    try {
-      const now = new Date();
-      const month = now.getMonth() + 1;
-      const year = now.getFullYear();
-
-      const weeks: any[] = [];
-      for (let w = 1; w <= weeksCount; w++) {
-        const days: any[] = [];
-        for (let d = 1; d <= daysPerWeek; d++) {
-          days.push({ dayName: `Día ${d}`, exercises: [] });
-        }
-        weeks.push({ weekNumber: w, days });
-      }
-
-      const routine: Partial<MonthlyRoutine> = {
-        month,
-        year,
-        userId: currentUser.id,
-        coachId: currentUser.id,
-        status: 'ACTIVE' as any,
-        weeks,
-        createdAt: new Date().toISOString(),
-      };
-
-      // Add a lightweight title derived from template
-      const title = `${template === 'full' ? 'Full Body' : template === 'upperlower' ? 'Upper/Lower' : 'PPL'} - ${weeksCount}w`;
-      await apiService.createIndependienteRoutine(currentUser.id, { ...routine, title } as any);
-      await load();
-    } catch (err) {
-      console.error('generateRoutine failed', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const [editingRoutine, setEditingRoutine] = useState<MonthlyRoutine | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [exerciseOptions, setExerciseOptions] = useState<{value: string; label: string; category?: string; media?: string}[]>([]);
+  const [selectedExerciseValue, setSelectedExerciseValue] = useState<string | null>(null);
   const [pendingDeleteRoutine, setPendingDeleteRoutine] = useState<MonthlyRoutine | null>(null);
 
   const startEdit = (r: MonthlyRoutine) => {
-    setEditingRoutine(r);
-    setEditingName((r as any).name || '');
+    // ensure routine has at least one week/day to allow adding exercises
+    const safe = JSON.parse(JSON.stringify(r)) as MonthlyRoutine;
+    if (!safe.weeks || !Array.isArray(safe.weeks) || safe.weeks.length === 0) {
+      safe.weeks = [{ weekNumber: 1, days: [{ dayName: 'Día 1', exercises: [] }] } as any];
+    }
+    setEditingRoutine(safe);
+    setEditingName((safe as any).name || '');
+    setSelectedExerciseValue(null);
+  };
+
+  const getExerciseCategory = (exerciseName: string) => {
+    const opt = exerciseOptions.find(o => o.value === exerciseName || (o.label && o.label === exerciseName));
+    if (!opt) return '';
+    if (opt.category) return String(opt.category).replace(/^RUTINA DE\s+/i, '').trim();
+    const parts = opt.label.split(' · ');
+    const raw = parts[parts.length - 1] || '';
+    return String(raw).replace(/^RUTINA DE\s+/i, '').trim();
+  };
+
+  const getInitials = (label: string) => {
+    if (!label) return '';
+    const main = String(label).split(' · ')[0];
+    const parts = main.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+    return (parts[0][0] + (parts[1][0] || '')).toUpperCase();
   };
 
   const confirmEdit = async () => {
@@ -137,40 +149,101 @@ const DashboardAlone: React.FC<{ currentUser: User }> = ({ currentUser }) => {
           </form>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border">
-          <h4 className="font-black uppercase text-sm mb-3">Generador de Rutinas</h4>
-          <form onSubmit={generateRoutine} className="space-y-3">
-            <div className="flex items-center gap-2">
-              <label className="text-xs w-28">Plantilla</label>
-              <select value={template} onChange={e => setTemplate(e.target.value as any)} className="flex-1 bg-slate-50 p-2 rounded">
-                <option value="full">Full Body</option>
-                <option value="upperlower">Upper / Lower</option>
-                <option value="ppl">Push / Pull / Legs</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-xs w-28">Semanas</label>
-              <input type="number" min={1} max={12} value={weeksCount} onChange={e => setWeeksCount(Number(e.target.value))} className="w-24 bg-slate-50 p-2 rounded" />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-xs w-28">Días / semana</label>
-              <input type="number" min={1} max={7} value={daysPerWeek} onChange={e => setDaysPerWeek(Number(e.target.value))} className="w-24 bg-slate-50 p-2 rounded" />
-            </div>
-
-            <div className="flex justify-end">
-              <button className="bg-primary text-black px-4 py-2 rounded-xl font-black">Generar</button>
-            </div>
-          </form>
-        </div>
+        {/* generator removed per request */}
       </section>
       {editingRoutine && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4">
+        <div className="fixed inset-0 bg-black/75 flex items-start justify-center p-6 z-50 overflow-auto">
+          <div className="bg-white w-full max-w-3xl rounded-2xl p-6 space-y-4 h-full max-h-3xl">
             <h3 className="text-xl font-black uppercase">Editar Rutina</h3>
-            <input value={editingName} onChange={e => setEditingName(e.target.value)} className="w-full bg-slate-50 p-3 rounded-xl" />
-            <div className="flex gap-3">
+
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="text-xs font-black uppercase">Nombre Rutina</label>
+                <input value={editingName} onChange={e => setEditingName(e.target.value)} className="w-full bg-slate-50 p-3 rounded-xl mb-3" />
+
+                <div className="mb-8">
+                  <label className="text-xs font-black uppercase">Agregar ejercicio</label>
+                  <div className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <SearchableSelect
+                        options={exerciseOptions}
+                        value={selectedExerciseValue}
+                        placeholder="Buscar ejercicio..."
+                        onChange={(v) => setSelectedExerciseValue(v)}
+                      />
+                    </div>
+                    <div>
+                      <button className="bg-primary text-black px-3 py-2 rounded-xl font-black font-bold" onClick={async () => {
+                        if (!selectedExerciseValue) return;
+                        const updated = JSON.parse(JSON.stringify(editingRoutine)) as MonthlyRoutine;
+                        const exName = selectedExerciseValue;
+                        // always add to first week/day
+                        if (!updated.weeks || updated.weeks.length === 0) updated.weeks = [{ weekNumber: 1, days: [{ dayName: 'Día 1', exercises: [] }] } as any];
+                        if (!updated.weeks[0].days || updated.weeks[0].days.length === 0) updated.weeks[0].days = [{ dayName: 'Día 1', exercises: [] } as any];
+                        const day = updated.weeks[0].days[0];
+                        if (!day.exercises) day.exercises = [];
+                        if (!day.exercises.some((e: any) => String(e.name || e) === String(exName))) {
+                          day.exercises.push({ id: exName, name: exName });
+                        }
+                        setEditingRoutine(updated);
+                        try { await apiService.updateIndependienteRoutine(updated.id as any, updated as any); } catch (e) { console.error('failed update', e); }
+                        setSelectedExerciseValue(null);
+                      }}>Add</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-black uppercase text-xs mb-2">Ejercicios en la rutina</h4>
+                  <div className="space-y-2 max-h-56 overflow-auto">
+                    {/* flatten all exercises across weeks/days into a single list */}
+                    {(() => {
+                      const list: any[] = [];
+                      (editingRoutine.weeks || []).forEach(w => {
+                        (w.days || []).forEach(d => {
+                          (d.exercises || []).forEach(ex => list.push(ex));
+                        });
+                      });
+                      if (list.length === 0) return <div className="text-xs text-slate-400">(sin ejercicios)</div>;
+                      return list.map((ex: any, idx: number) => {
+                        const name = ex.name || ex;
+                        const category = getExerciseCategory(String(name));
+                        const initials = getInitials(String(name));
+                        const media = exerciseOptions.find(o => o.value === name)?.media || '';
+                        return (
+                          <div key={idx} className="bg-slate-50 px-3 py-1 rounded flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-3">
+                              {media ? (
+                                <LazyImage src={media} alt={name} className="w-10 h-10" />
+                              ) : (
+                                <div className="w-10 h-10 flex-shrink-0 rounded bg-slate-100 flex items-center justify-center text-xs font-black uppercase">{initials}</div>
+                              )}
+                              <div className="text-sm text-left">{name}</div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="text-xs text-slate-500 text-right">{category}</div>
+                              <button className="text-xs text-red-600 font-black" onClick={async () => {
+                                const updated = JSON.parse(JSON.stringify(editingRoutine)) as MonthlyRoutine;
+                                // remove from all days
+                                updated.weeks.forEach(w => w.days.forEach(d => {
+                                  d.exercises = (d.exercises || []).filter((item: any) => String(item.name || item) !== String(name));
+                                }));
+                                setEditingRoutine(updated);
+                                try { await apiService.updateIndependienteRoutine(updated.id as any, updated as any); } catch (e) { console.error('failed update', e); }
+                              }}>✕</button>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {/* exercise history removed from edit modal per request */}
+            </div>
+
+            <div className="flex gap-3 justify-end mt-4">
               <button onClick={() => { setEditingRoutine(null); setEditingName(''); }} className="flex-1 py-3 uppercase text-slate-400 font-black">Cancelar</button>
               <button onClick={confirmEdit} className="flex-1 bg-black text-primary py-3 rounded-xl font-black uppercase">Guardar</button>
             </div>

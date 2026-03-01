@@ -663,6 +663,180 @@ app.post('/api/routines', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Support updating a routine by id (tries independent_routines first)
+app.patch('/api/routines/:id', async (req, res) => {
+  try {
+    const idParam = String(req.params.id || '');
+    let updates = req.body.updates || req.body;
+    if (updates && typeof updates === 'object') {
+      const { _id, id, ...rest } = updates;
+      updates = rest;
+    }
+    if (ObjectId.isValid(idParam)) {
+      const oid = new ObjectId(idParam);
+      const foundIndie = await db.collection('independent_routines').findOne({ _id: oid });
+      if (foundIndie) {
+        await db.collection('independent_routines').updateOne({ _id: oid }, { $set: updates });
+        const updated = await db.collection('independent_routines').findOne({ _id: oid });
+        return res.json(updated);
+      }
+
+      const found = await db.collection('routines').findOne({ _id: oid });
+      if (found) {
+        await db.collection('routines').updateOne({ _id: oid }, { $set: updates });
+        const updated = await db.collection('routines').findOne({ _id: oid });
+        return res.json(updated);
+      }
+    }
+
+    // Try string id lookup
+    const foundIndieStr = await db.collection('independent_routines').findOne({ id: { $eq: idParam } });
+    if (foundIndieStr) {
+      await db.collection('independent_routines').updateOne({ id: { $eq: idParam } }, { $set: updates });
+      const updated = await db.collection('independent_routines').findOne({ id: { $eq: idParam } });
+      return res.json(updated);
+    }
+
+    const foundStr = await db.collection('routines').findOne({ id: { $eq: idParam } });
+    if (foundStr) {
+      await db.collection('routines').updateOne({ id: { $eq: idParam } }, { $set: updates });
+      const updated = await db.collection('routines').findOne({ id: { $eq: idParam } });
+      return res.json(updated);
+    }
+
+    return res.status(404).json({ error: 'NOT_FOUND' });
+  } catch (err) { console.error('PATCH /api/routines/:id error', err); res.status(500).json({ error: err?.message || 'INTERNAL_ERROR' }); }
+});
+
+// Support deleting a routine by id (tries independent_routines first)
+app.delete('/api/routines/:id', async (req, res) => {
+  try {
+    const idParam = String(req.params.id || '');
+    if (ObjectId.isValid(idParam)) {
+      const oid = new ObjectId(idParam);
+      const foundIndie = await db.collection('independent_routines').findOne({ _id: oid });
+      if (foundIndie) {
+        await db.collection('independent_routines').deleteOne({ _id: oid });
+        return res.status(204).send();
+      }
+
+      const found = await db.collection('routines').findOne({ _id: oid });
+      if (found) {
+        await db.collection('routines').deleteOne({ _id: oid });
+        return res.status(204).send();
+      }
+    }
+
+    // Try string id lookup
+    const foundIndieStr = await db.collection('independent_routines').findOne({ id: { $eq: idParam } });
+    if (foundIndieStr) {
+      await db.collection('independent_routines').deleteOne({ id: { $eq: idParam } });
+      return res.status(204).send();
+    }
+
+    const foundStr = await db.collection('routines').findOne({ id: { $eq: idParam } });
+    if (foundStr) {
+      await db.collection('routines').deleteOne({ id: { $eq: idParam } });
+      return res.status(204).send();
+    }
+
+    return res.status(404).json({ error: 'NOT_FOUND' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Endpoints specifically for 'independiente' routines (separate collection)
+app.get('/api/independiente/routines', async (req, res) => {
+  try {
+    const rawUserId = req.query.userId;
+    let userId;
+    if (rawUserId && typeof rawUserId === 'string') {
+      const trimmed = rawUserId.trim();
+      if (trimmed !== '') userId = trimmed;
+    } else if (typeof rawUserId === 'number') {
+      userId = rawUserId;
+    }
+    const filter = userId ? { userId: { $eq: userId } } : {};
+    try {
+      const routines = await db.collection('independent_routines').find(filter).sort({ createdAt: -1 }).toArray();
+      return res.json(routines);
+    } catch (err) {
+      const routines = await db.collection('independent_routines').find(filter).toArray();
+      routines.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return res.json(routines);
+    }
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/independiente/routines', async (req, res) => {
+  try {
+    const { coachId, routine } = req.body;
+    const userId = routine?.userId;
+    if (!userId || (typeof userId !== 'string' && typeof userId !== 'number')) {
+      return res.status(400).json({ error: 'Invalid userId' });
+    }
+    const newRoutine = { ...routine, coachId, source: 'independent', status: 'ACTIVE', createdAt: new Date().toISOString() };
+    await db.collection('independent_routines').updateMany({ userId: { $eq: userId } }, { $set: { status: 'ARCHIVED' } });
+    const result = await db.collection('independent_routines').insertOne(newRoutine);
+    await writeAuditLog(coachId || 'COACH', 'CREATE_INDEPENDIENTE_ROUTINE', { routineId: result.insertedId.toString(), userId });
+    return res.status(201).json({ ...newRoutine, _id: result.insertedId });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/independiente/routines/:id', async (req, res) => {
+  try {
+    const idParam = String(req.params.id || '');
+    let updates = req.body.updates || req.body;
+    if (updates && typeof updates === 'object') {
+      const { _id, id, ...rest } = updates;
+      updates = rest;
+    }
+    if (ObjectId.isValid(idParam)) {
+      const oid = new ObjectId(idParam);
+      const found = await db.collection('independent_routines').findOne({ _id: oid });
+      if (found) {
+        await db.collection('independent_routines').updateOne({ _id: oid }, { $set: updates });
+        const updated = await db.collection('independent_routines').findOne({ _id: oid });
+        await writeAuditLog(req.body.currentUser?.id || 'SYSTEM', 'UPDATE_INDEPENDIENTE_ROUTINE', { routineId: idParam });
+        return res.json(updated);
+      }
+    }
+
+    const foundStr = await db.collection('independent_routines').findOne({ id: { $eq: idParam } });
+    if (foundStr) {
+      await db.collection('independent_routines').updateOne({ id: { $eq: idParam } }, { $set: updates });
+      const updated = await db.collection('independent_routines').findOne({ id: { $eq: idParam } });
+      await writeAuditLog(req.body.currentUser?.id || 'SYSTEM', 'UPDATE_INDEPENDIENTE_ROUTINE', { routineId: idParam });
+      return res.json(updated);
+    }
+
+    return res.status(404).json({ error: 'NOT_FOUND' });
+  } catch (err) { console.error('PATCH /api/independiente/routines/:id error', err); res.status(500).json({ error: err?.message || 'INTERNAL_ERROR' }); }
+});
+
+app.delete('/api/independiente/routines/:id', async (req, res) => {
+  try {
+    const idParam = String(req.params.id || '');
+    if (ObjectId.isValid(idParam)) {
+      const oid = new ObjectId(idParam);
+      const found = await db.collection('independent_routines').findOne({ _id: oid });
+      if (found) {
+        await db.collection('independent_routines').deleteOne({ _id: oid });
+        await writeAuditLog(req.body.currentUser?.id || 'SYSTEM', 'DELETE_INDEPENDIENTE_ROUTINE', { routineId: idParam });
+        return res.status(204).send();
+      }
+    }
+
+    const foundStr = await db.collection('independent_routines').findOne({ id: { $eq: idParam } });
+    if (foundStr) {
+      await db.collection('independent_routines').deleteOne({ id: { $eq: idParam } });
+      await writeAuditLog(req.body.currentUser?.id || 'SYSTEM', 'DELETE_INDEPENDIENTE_ROUTINE', { routineId: idParam });
+      return res.status(204).send();
+    }
+
+    return res.status(404).json({ error: 'NOT_FOUND' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Ejercicios y Media
 app.get('/api/exercises/bank', async (req, res) => {
   const data = await db.collection("config").findOne({ id: 'exerciseBank' });

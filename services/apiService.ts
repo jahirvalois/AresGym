@@ -229,6 +229,89 @@ export const apiService = {
     }
   },
 
+  // Independent routines API (separate collection)
+  async getIndependienteRoutines(userId?: string) {
+    try {
+      const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+      const routines = await request<MonthlyRoutine[]>(`/independiente/routines${query}`);
+      return routines.map(r => {
+        if ((r as any).id) return r;
+        if ((r as any)._id) {
+          const idValue = typeof (r as any)._id === 'object' && (r as any)._id.$oid ? (r as any)._id.$oid : String((r as any)._id);
+          return { ...r, id: idValue } as MonthlyRoutine;
+        }
+        return r;
+      });
+    } catch {
+      const all = getLocal('routines', []);
+      return userId ? all.filter((r: any) => r.userId === userId) : all;
+    }
+  },
+
+  async createIndependienteRoutine(coachId: string, routine: Partial<MonthlyRoutine>) {
+    try {
+      return await request<MonthlyRoutine>('/independiente/routines', {
+        method: 'POST',
+        body: JSON.stringify({ coachId, routine })
+      });
+    } catch {
+      const routines = getLocal('routines', []);
+      const r = { id: Math.random().toString(36).substr(2, 9), ...routine, coachId, source: 'independent', status: RoutineStatus.ACTIVE, createdAt: new Date().toISOString() };
+      saveLocal('routines', [...routines, r]);
+      return r as MonthlyRoutine;
+    }
+  },
+
+  async updateIndependienteRoutine(id: string, updates: Partial<MonthlyRoutine>) {
+    try {
+      return await request<MonthlyRoutine>(`/independiente/routines/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ updates })
+      });
+    } catch {
+      const routines = getLocal('routines', []);
+      const updated = routines.map((r: any) => (String(r.id) === String(id) ? { ...r, ...updates } : r));
+      saveLocal('routines', updated);
+      return updated.find((r: any) => String(r.id) === String(id));
+    }
+  },
+
+  async deleteIndependienteRoutine(id: string) {
+    try {
+      await request<void>(`/independiente/routines/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      return true;
+    } catch {
+      const routines = getLocal('routines', []);
+      saveLocal('routines', routines.filter((r: any) => String(r.id) !== String(id)));
+      return true;
+    }
+  },
+
+  async updateRoutine(id: string, updates: Partial<MonthlyRoutine>) {
+    try {
+      return await request<MonthlyRoutine>(`/routines/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates)
+      });
+    } catch {
+      const routines = getLocal('routines', []);
+      const updated = routines.map((r: any) => (String(r.id) === String(id) ? { ...r, ...updates } : r));
+      saveLocal('routines', updated);
+      return updated.find((r: any) => String(r.id) === String(id));
+    }
+  },
+
+  async deleteRoutine(id: string) {
+    try {
+      await request<void>(`/routines/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      return true;
+    } catch {
+      const routines = getLocal('routines', []);
+      saveLocal('routines', routines.filter((r: any) => String(r.id) !== String(id)));
+      return true;
+    }
+  },
+
   async getLogs(userId: string, options?: { limit?: number; skip?: number; exerciseId?: string; includeTotal?: boolean }) {
     try {
       const params: string[] = [];

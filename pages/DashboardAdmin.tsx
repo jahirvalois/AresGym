@@ -151,7 +151,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
-        subscriptionEndDate: newUser.role === UserRole.USER ? (newUser.subEnd ? localToISOStringEndOfDay(newUser.subEnd) : '') : '2050-12-31T23:59:59.000Z'
+        subscriptionEndDate: (newUser.role === UserRole.USER || newUser.role === UserRole.INDEPENDIENTE) ? (newUser.subEnd ? localToISOStringEndOfDay(newUser.subEnd) : '') : '2050-12-31T23:59:59.000Z'
       });
       setNotification({ type: 'success', message: 'Guerrero reclutado e invitacion enviada.' });
       setNewUser({ ...newUser, name: '', email: '' });
@@ -171,7 +171,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
       // Don't allow email to be changed here — remove it from updates
       const { email, _id, id, ...updates } = editingUser as any;
       // If role was changed to USER and no subscriptionEndDate provided, set a default one month from now
-      if (updates.role === UserRole.USER && !updates.subscriptionEndDate) {
+      if ((updates.role === UserRole.USER || updates.role === UserRole.INDEPENDIENTE) && !updates.subscriptionEndDate) {
         const d = new Date();
         d.setMonth(d.getMonth() + 1);
         d.setHours(23, 59, 59, 0);
@@ -340,7 +340,8 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     let label = r;
     if (r === 'ADMIN') classes += 'bg-slate-800 text-yellow-600';
     else if (r === 'COACH') classes += 'bg-blue-100 text-blue-700';
-    else classes += 'bg-gray-300 text-black-100';
+    else if (r === 'INDEPENDIENTE') classes += 'bg-purple-100 text-purple-700';
+    else classes += 'bg-gray-300 text-gray-700';
     return <span className={classes}>{label}</span>;
   };
 
@@ -411,8 +412,9 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
               <option value={UserRole.USER}>Guerrero</option>
               <option value={UserRole.COACH}>Mentor</option>
               <option value={UserRole.ADMIN}>Rey</option>
+              <option value={UserRole.INDEPENDIENTE}>Independiente</option>
             </select>
-            <input type="datetime-local" className="bg-slate-50 p-3 rounded-xl font-bold" value={newUser.subEnd} onChange={e => setNewUser({...newUser, subEnd: e.target.value})} disabled={newUser.role !== UserRole.USER} />
+            <input type="datetime-local" className="bg-slate-50 p-3 rounded-xl font-bold" value={newUser.subEnd} onChange={e => setNewUser({...newUser, subEnd: e.target.value})} disabled={!(newUser.role === UserRole.USER || newUser.role === UserRole.INDEPENDIENTE)} />
             <button className="bg-primary text-black border-2 border-primary font-black uppercase italic px-6 py-3 rounded-xl shadow-lg hover:bg-black hover:text-yellow-400 hover:border-yellow-400 transition-all">Reclutar</button>
           </form>
         </section>
@@ -421,37 +423,37 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
             <table className="w-full table-fixed text-left min-w-[900px] sm:min-w-full">
             <thead className="bg-slate-900 text-white text-[9px] uppercase">
               <tr>
-                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-2/5" onClick={() => handleSort('name')}>
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-3/8" onClick={() => handleSort('name')}>
                   <div className="flex items-center space-x-2 text-xs md:text-sm">
                     <span>Nombre / Acceso</span>
                     {sortConfig?.key === 'name' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
-                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-20 hidden sm:table-cell" onClick={() => handleSort('role')}>
-                  <div className="flex items-center space-x-2 text-xs md:text-sm">
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-1/8" onClick={() => handleSort('role')}>
+                  <div className="flex items-center justify-center space-x-2 text-xs md:text-sm">
                     <span>Rol</span>
                     {sortConfig?.key === 'role' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
-                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-32" onClick={() => handleSort('origin')}>
-                  <div className="flex items-center space-x-2 text-xs md:text-sm">
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-1/8" onClick={() => handleSort('origin')}>
+                  <div className="flex items-center justify-center space-x-2 text-xs md:text-sm">
                     <span>Origen</span>
                     {sortConfig?.key === 'origin' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
-                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-28" onClick={() => handleSort('status')}>
-                  <div className="flex items-center space-x-2 text-xs md:text-sm">
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-1/8" onClick={() => handleSort('status')}>
+                  <div className="flex items-center justify-center space-x-2 text-xs md:text-sm">
                     <span>Estatus</span>
                     {sortConfig?.key === 'status' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
-                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-28" onClick={() => handleSort('vencimiento')}>
-                  <div className="flex items-center space-x-2 text-xs md:text-sm">
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-1/8" onClick={() => handleSort('vencimiento')}>
+                  <div className="flex items-center justify-center space-x-2 text-xs md:text-sm">
                     <span>Vencimiento</span>
                     {sortConfig?.key === 'vencimiento' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                   </div>
                 </th>
-                <th className="p-1 md:p-2 text-right w-28">
+                <th className="p-1 md:p-2 text-right w-1/8">
                   <div className="text-xs md:text-sm"><span>Acciones</span></div>
                 </th>
               </tr>
@@ -462,18 +464,18 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                   <td className="p-1 md:p-2">
                     <p className="font-black uppercase italic text-slate-900 text-xs md:text-sm">{u.name}</p>
                     <p className="text-[13px] text-slate-400">{u.email}</p>
-                    <div className="sm:hidden mt-2">{renderRoleBadge(u.role)}</div>
+                    {/*<div className="sm:hidden mt-2">{renderRoleBadge(u.role)}</div>*/}
                   </td>
-                  <td className="p-1 md:p-2 hidden sm:table-cell">{renderRoleBadge(u.role)}</td>
-                  <td className="p-1 md:p-2 font-black text-[13px] uppercase">{(u.origin || u.provider || 'manual').toString().toUpperCase()}</td>
-                  <td className="p-1 md:p-2">
+                  <td className="p-1 md:p-2 text-center">{renderRoleBadge(u.role)}</td>
+                  <td className="p-1 md:p-2 font-black text-[13px] uppercase text-center">{(u.origin || u.provider || 'manual').toString().toUpperCase()}</td>
+                  <td className="p-1 md:p-2 text-center">
                     {u.isFirstLogin ? (
                       <span className="text-[13px] font-black uppercase px-2 py-1 rounded-lg bg-amber-100 text-amber-700">INV. ENVIADA</span>
                     ) : (
                       <span className={`text-[13px] font-black uppercase px-2 py-1 rounded-lg ${u.status === UserStatus.ACTIVE ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{u.status}</span>
                     )}
                   </td>
-                  <td className="p-1 md:p-2 font-black text-[13px]">{u.role === UserRole.USER ? new Date(u.subscriptionEndDate).toLocaleDateString() : 'INFINITO'}</td>
+                  <td className="p-1 md:p-2 font-black text-[13px] text-center">{(u.role === UserRole.USER || u.role === UserRole.INDEPENDIENTE) ? (u.subscriptionEndDate ? new Date(u.subscriptionEndDate).toLocaleDateString() : '') : 'INFINITO'}</td>
                   <td className="p-1 md:p-2 text-right space-x-2 text-[13px]">
                     <button onClick={() => setEditingUser(u)} className="text-blue-600 font-black uppercase hover:underline">Ajustar</button>
                     {u.status !== UserStatus.ACTIVE && (
@@ -514,6 +516,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                   <option value={UserRole.USER}>Guerrero</option>
                   <option value={UserRole.COACH}>Mentor</option>
                   <option value={UserRole.ADMIN}>Rey</option>
+                  <option value={UserRole.INDEPENDIENTE}>Independiente</option>
                 </select>
                 <select className="w-full bg-slate-50 p-3 rounded-xl font-bold uppercase" value={editingUser.status} onChange={e => setEditingUser({...editingUser, status: e.target.value as UserStatus})}>
                   <option value={UserStatus.ACTIVE}>ACTIVE</option>

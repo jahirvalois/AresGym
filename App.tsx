@@ -12,6 +12,7 @@ import { Layout } from './components/Layout';
 import { DashboardAdmin } from './pages/DashboardAdmin';
 import { DashboardCoach } from './pages/DashboardCoach';
 import { DashboardUser } from './pages/DashboardUser';
+import DashboardAlone from './pages/DashboardAlone';
 import { BrandingManager } from './pages/BrandingManager';
 
 type AuthView = 'login' | 'forgot-password' | 'reset-password' | 'first-login';
@@ -727,6 +728,7 @@ const App: React.FC = () => {
     <BrandingProvider>
       <Layout user={user} onLogout={logoutAndRedirect} activeTab={activeTab} setActiveTab={setActiveTab}>
         {activeTab === 'dashboard' && user.role === UserRole.USER && <DashboardUser currentUser={user} />}
+        {activeTab === 'dashboard' && user.role === UserRole.INDEPENDIENTE && <DashboardAlone currentUser={user} />}
 
         {activeTab === 'users' && user.role === UserRole.ADMIN && (
           <DashboardAdmin activeTab="users" currentUser={user} />

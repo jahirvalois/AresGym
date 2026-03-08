@@ -47,6 +47,46 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState(brandingService.getSettings());
   const errorTimeoutRef = useRef<number | null>(null);
 
+  const [googleReady, setGoogleReady] = useState(false);
+
+  const ensureGoogleSdkLoaded = (): Promise<void> => {
+    return new Promise((resolve) => {
+      const win: any = window as any;
+      if (win.google && win.google.accounts && win.google.accounts.id) {
+        setGoogleReady(true);
+        return resolve();
+      }
+      // If a script tag already exists, attach listeners
+      const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]') as HTMLScriptElement | null;
+      if (existing) {
+        if ((win.google && win.google.accounts && win.google.accounts.id)) {
+          setGoogleReady(true);
+          return resolve();
+        }
+        existing.addEventListener('load', () => { setGoogleReady(true); resolve(); });
+        existing.addEventListener('error', () => { console.warn('Failed to load GSI script'); resolve(); });
+        return;
+      }
+
+      const s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true;
+      s.defer = true;
+      s.onload = () => { setGoogleReady(true); resolve(); };
+      s.onerror = () => { console.warn('Failed to load GSI script'); resolve(); };
+      document.head.appendChild(s);
+    });
+  };
+
+    useEffect(() => {
+      try {
+        const origin = (typeof window !== 'undefined') ? window.location.origin : 'unknown';
+        const metaEnv = (import.meta as any)?.env || {};
+        const clientId = metaEnv?.VITE_GOOGLE_CLIENT_ID || (window as any).__VITE_GOOGLE_CLIENT_ID;
+        console.info('[App] origin', origin, 'clientId', clientId);
+      } catch (e) { /* ignore */ }
+    }, []);
+
   const showTempError = (message: string, isBlocking: boolean) => {
     try {
       if (errorTimeoutRef.current) {
@@ -293,36 +333,45 @@ const App: React.FC = () => {
       if (!container) return console.warn('Google container not found');
       const win: any = window as any;
       // If GSI is available, ensure the injected button is rendered. If not, render it and retry clicking a few times.
-      if (win.google && win.google.accounts && win.google.accounts.id) {
-        const ensureRender = () => {
+      const doSignIn = async () => {
+        const win2: any = window as any;
+        if (win2.google && win2.google.accounts && win2.google.accounts.id) {
           try {
-            win.google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: 220 });
-          } catch (e) {
-            // ignore render errors
-          }
-        };
+            win2.google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: 220 });
+          } catch (e) {}
 
-        let btn = container.querySelector('[role="button"], button') as HTMLElement | null;
-        if (!btn) ensureRender();
+          let btn = container.querySelector('[role="button"], button') as HTMLElement | null;
+          if (!btn) {
+            try { win2.google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: 220 }); } catch(e){}
+          }
 
-        let attempts = 0;
-        const maxAttempts = 8;
-        const intervalId = window.setInterval(() => {
-          attempts += 1;
-          btn = container.querySelector('[role="button"], button') as HTMLElement | null;
-          if (btn && btn.click) {
-            try { btn.click(); } catch (e) { /* ignore click errors */ }
-            clearInterval(intervalId);
-            return;
-          }
-          if (attempts >= maxAttempts) {
-            clearInterval(intervalId);
-            console.warn('Google rendered button not found after retries');
-          }
-        }, 300);
+          let attempts = 0;
+          const maxAttempts = 8;
+          const intervalId = window.setInterval(() => {
+            attempts += 1;
+            btn = container.querySelector('[role="button"], button') as HTMLElement | null;
+            if (btn && btn.click) {
+              try { btn.click(); } catch (e) { /* ignore click errors */ }
+              clearInterval(intervalId);
+              return;
+            }
+            if (attempts >= maxAttempts) {
+              clearInterval(intervalId);
+              console.warn('Google rendered button not found after retries');
+            }
+          }, 300);
+          return;
+        }
+        console.warn('Google Identity SDK not available (after attempt)');
+      };
+
+      // Ensure SDK is loaded before attempting sign-in
+      if (win.google && win.google.accounts && win.google.accounts.id) {
+        doSignIn();
         return;
       }
-      console.warn('Google Identity SDK not available');
+      ensureGoogleSdkLoaded().then(() => doSignIn()).catch(() => { console.warn('Could not load Google SDK'); });
+      
     } catch (e) {
       console.warn('signInGoogle failed', e);
     }
@@ -458,8 +507,13 @@ const App: React.FC = () => {
       return () => window.clearInterval(id);
     };
 
-    const cleanup = initGoogle();
-    return () => { if (typeof cleanup === 'function') cleanup(); };
+    // Ensure SDK is present (load dynamically if needed) before attempting init
+    ensureGoogleSdkLoaded().then(() => {
+      const cleanup = initGoogle();
+      // cleanup will be returned by outer effect if provided
+      // but we keep reference so we can clear interval inside initGoogle
+    }).catch(() => { initGoogle(); });
+    return () => { /* initGoogle's internal timer cleans up itself */ };
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {

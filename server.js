@@ -1018,6 +1018,20 @@ app.post('/api/logs', async (req, res) => {
       }
     }
 
+    // If not allowed by routine assignment, allow the first-ever log for this
+    // (userId, exerciseId) pair so clients can record the first instance even
+    // if routine data is out-of-sync or not yet assigned.
+    if (!allowed) {
+      try {
+        const existing = await db.collection('logs').countDocuments({ userId, exerciseId });
+        if (existing === 0) {
+          allowed = true;
+        }
+      } catch (e) {
+        // ignore errors and keep allowed=false
+      }
+    }
+
     if (!allowed) {
       return res.status(403).json({ error: 'EXERCISE_NOT_ASSIGNED', message: 'El ejercicio no está asignado en la rutina del usuario.' });
     }

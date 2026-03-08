@@ -259,11 +259,12 @@ export const apiService = {
 
   async addLog(log: Omit<WorkoutLog, 'id' | 'date'>) {
     try {
-      return await request<WorkoutLog>('/logs', {
+      const res = await request<WorkoutLog>('/logs', {
         method: 'POST',
         body: JSON.stringify(log)
       });
-    } catch {
+      return res;
+    } catch (err) {
       const logs = getLocal('logs', []);
       const newLog = { ...log, id: Math.random().toString(36).substr(2, 9), date: new Date().toISOString() };
       saveLocal('logs', [...logs, newLog]);

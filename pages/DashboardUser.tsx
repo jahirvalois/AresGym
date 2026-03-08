@@ -14,6 +14,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const [exercisePageLogs, setExercisePageLogs] = useState<any[]>([]);
   const EXERCISE_PAGE_SIZE = 4;
   const [exerciseTotal, setExerciseTotal] = useState<number>(0);
+  const [seededExercises, setSeededExercises] = useState<Record<string, boolean>>({});
   const [logReps, setLogReps] = useState<string>('');
   const [logWeight, setLogWeight] = useState<string>('');
  const [logType, setLogType] = useState<'warmup'|'routine'|'fail'|'drop-set'|'-'>('warmup');
@@ -25,6 +26,8 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingWeight, setEditingWeight] = useState<string>('');
   const [editingReps, setEditingReps] = useState<string>('');
+  const [editingType, setEditingType] = useState<'warmup'|'routine'|'fail'|'drop-set'|'-'>('routine');
+  const [editingTypeOpen, setEditingTypeOpen] = useState<boolean>(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const total = (Number(logReps) || 0) * (Number(logWeight) || 0);
@@ -35,6 +38,23 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   
   const [mediaLoading, setMediaLoading] = useState(true);
   const [mediaError, setMediaError] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [mediaPlaying, setMediaPlaying] = useState<boolean>(false);
+  const TYPE_LABELS: Record<string, string> = {
+    'warmup': 'Warmup',
+    'routine': 'Rutina',
+    'fail': 'Fallo',
+    'drop-set': 'DropSet',
+    '-': 'otro'
+  };
+  const TYPE_ABBREV: Record<string, string> = {
+    'warmup': 'W',
+    'routine': 'R',
+    'fail': 'F',
+    'drop-set': 'D',
+    '-': '-'
+  };
+  const [exerciseBank, setExerciseBank] = useState<Record<string, string[]>>({});
 
   const todayIndex = new Date().getDay();
   const adjustedToday = todayIndex === 0 ? 'Domingo' : DAYS[todayIndex - 1];
@@ -47,8 +67,11 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
         apiService.getLogs(currentUser.id),
         apiService.getSubscriptionState(currentUser)
       ]);
+      let bank = {} as Record<string,string[]>;
+      try { bank = await apiService.getExerciseBank(); } catch (e) { bank = {}; }
       setRoutine(myRoutines[0] || null);
       setLogs(userLogs);
+      setExerciseBank(bank || {});
       setSubState(subscription);
       setLoading(false);
     };
@@ -114,7 +137,45 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const handleLogWorkout = async () => {
     if (!activeExercise) return;
     // only allow logging if exercise is part of assigned routine
-    const assigned = !!currentDayRoutine && (currentDayRoutine.exercises || []).some((ex: any) => String(ex.id || ex) === String(activeExercise.id) || (ex.name && ex.name === activeExercise.name));
+    // Check current day first, then fall back to searching the whole routine so
+    // newly-assigned exercises (or exercises on another day) are allowed
+    let assigned = false;
+    try {
+      if (currentDayRoutine && (currentDayRoutine.exercises || []).some((ex: any) => String(ex.id || ex) === String(activeExercise.id) || (ex.name && ex.name === activeExercise.name))) {
+        assigned = true;
+      } else if (routine && routine.weeks) {
+        for (const w of routine.weeks) {
+          const days = w.days || [];
+          for (const d of days) {
+            const exercises = d.exercises || [];
+            for (const ex of exercises) {
+              const id = (ex && (ex.id || ex._id || ex.name)) ? (ex.id || ex._id || ex.name) : ex;
+              const name = (ex && (ex.name || ex.title)) ? (ex.name || ex.title) : null;
+              if (!id) continue;
+              if (String(id) === String(activeExercise.id) || (name && name === activeExercise.name)) {
+                assigned = true;
+                break;
+              }
+            }
+            if (assigned) break;
+          }
+          if (assigned) break;
+        }
+      }
+    } catch (e) {
+      assigned = false;
+    }
+    // Allow logging if the exercise exists in the global exercise bank
+    try {
+      if (!assigned && exerciseBank) {
+        const all = Object.values(exerciseBank).flat();
+        if (all.some((id: any) => String(id) === String(activeExercise.id) || String(id) === String(activeExercise.name))) {
+          assigned = true;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
     if (!assigned) {
       alert('No puedes registrar este ejercicio: no está asignado en tu rutina.');
       return;
@@ -158,7 +219,8 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
 
   const saveNewRow = async () => {
     if (!activeExercise) return;
-    if (!(Number(addingWeight) > 0 && Number(addingReps) > 0)) return;
+    // Allow save when at least one meaningful value is provided (weight OR reps)
+    if (!(Number(addingWeight) > 0 || Number(addingReps) > 0)) return;
     try {
       await apiService.addLog({
         userId: currentUser.id,
@@ -174,7 +236,8 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       });
       const updatedLogs = await apiService.getLogs(currentUser.id);
       setLogs(updatedLogs);
-      await fetchExercisePage(exercisePage);
+      // Force refresh the exercise page using the active exercise id
+      await fetchExercisePage(exercisePage, activeExercise.id);
     } finally {
       setAddingRow(false);
       setAddingWeight('');
@@ -187,12 +250,14 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     setEditingRowId(id || null);
     setEditingWeight(String(row.weightUsed ?? row.weight ?? ''));
     setEditingReps(String(row.repsDone ?? row.reps ?? ''));
+    setEditingType((row.type as any) || 'routine');
   };
 
   const cancelEditRow = () => {
     setEditingRowId(null);
     setEditingWeight('');
     setEditingReps('');
+    setEditingTypeOpen(false);
   };
 
   const saveEditRow = async () => {
@@ -203,6 +268,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
         weightUsed: Number(editingWeight) || 0,
         repsDone: Number(editingReps) || 0,
         total: (Number(editingWeight) || 0) * (Number(editingReps) || 0),
+        type: editingType
       } as any);
       const updatedLogs = await apiService.getLogs(currentUser.id);
       setLogs(updatedLogs);
@@ -211,6 +277,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       setEditingRowId(null);
       setEditingWeight('');
       setEditingReps('');
+      setEditingTypeOpen(false);
     }
   };
 
@@ -297,6 +364,39 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
         setExerciseTotal((res && res.length) ? res.length : 0);
       }
       setExercisePage(page);
+      // If there are no logs for this exercise and we haven't seeded it yet,
+      // create an initial placeholder log (weight=0, reps=0, type='-') so the UI
+      // has a first row to operate on. Only seed on the first page (skip===0).
+      if ((typeof res === 'object' && Array.isArray(res.items) && (res.total || 0) === 0) || (Array.isArray(res) && res.length === 0)) {
+        if (skip === 0 && !seededExercises[exId]) {
+          try {
+            await apiService.addLog({
+              userId: currentUser.id,
+              exerciseId: exId,
+              routineId: routine?.id || 'none',
+              weightUsed: 0,
+              weightUnit: 'lb',
+              total: 0,
+              repsDone: 0,
+              rpe: 0,
+              notes: 'Registro inicial generado automáticamente',
+              type: '-'
+            });
+            setSeededExercises(prev => ({ ...prev, [exId]: true }));
+            // refetch page after seeding
+            const rer: any = await apiService.getLogs(currentUser.id, { exerciseId: exId, limit: EXERCISE_PAGE_SIZE, skip, includeTotal: true });
+            if (rer && Array.isArray(rer.items)) {
+              setExercisePageLogs(rer.items || []);
+              setExerciseTotal(rer.total || 0);
+            } else {
+              setExercisePageLogs(rer || []);
+              setExerciseTotal((rer && rer.length) ? rer.length : 0);
+            }
+          } catch (e) {
+            // seeding failed; ignore
+          }
+        }
+      }
     } catch (e) {
       setExercisePageLogs([]);
     }
@@ -351,7 +451,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       return (
         <video
           src={mediaUrl}
-          className="w-full h-full object-contain bg-black"
+          className="w-full h-full object-contain bg-transparent opacity-100"
           autoPlay
           muted
           loop
@@ -374,7 +474,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       <>
         <img
           src={mediaUrl}
-          className={`w-full h-full object-contain transition-opacity duration-500 ${mediaLoading ? 'opacity-0' : 'opacity-80 group-hover:opacity-100'}`}
+          className={`w-full h-full object-contain transition-opacity duration-500 ${mediaLoading ? 'opacity-0' : 'opacity-100'}`}
           alt="Guía Visual"
           onLoad={() => setMediaLoading(false)}
           onError={() => {
@@ -506,7 +606,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
 
           {activeExercise && (
             <div className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-start sm:items-center justify-center p-4 z-[250] overflow-auto animate-in fade-in">
-          <div className="bg-white w-full max-w-lg rounded-[1rem] p-8 space-y-8 relative shadow-[0_0_100px_rgba(234,179,8,0.2)] border border-white/20 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white w-full max-w-lg rounded-[1rem] p-8 space-y-8 relative shadow-none border border-white/20 max-h-[90vh] overflow-y-auto">
             <button onClick={() => setActiveExercise(null)} className="absolute top-8 right-8 w-10 h-10 bg-slate-100 hover:bg-red-500 hover:text-white rounded-2xl font-black transition-all flex items-center justify-center text-lg shadow-lg z-50">✕</button>
             
             <div className="space-y-2">
@@ -514,7 +614,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                <h5 className="text-2xl font-black uppercase italic tracking-tighter leading-tight pr-12 text-slate-900">{activeExercise.name}</h5>
             </div>
 
-            <div className="aspect-video bg-black rounded-[1rem] overflow-hidden shadow-2xl relative group flex items-center justify-center">
+            <div className="aspect-video bg-black rounded-[1rem] overflow-hidden relative group flex items-center justify-center">
               {mediaLoading && !mediaError && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 bg-slate-900 z-10">
                    <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
@@ -530,7 +630,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                 </div>
               ) : renderActiveMedia()}
               
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent pointer-events-none"></div>
             </div>
 
             {activeExercise.notes && (
@@ -554,7 +654,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
             {isExerciseCompletedThisWeek(activeExercise.id) ? (
               <div className="w-full bg-green-500 text-white py-4 rounded-[1rem] font-black uppercase italic text-center text-2xl shadow-xl animate-pulse">OBJETIVO CONQUISTADO</div>
             ) : (
-              <button onClick={handleConfirmConquest} className="w-full bg-black text-primary py-4 rounded-[1rem] font-black uppercase italic tracking-tighter text-2xl active:scale-95 transition-all shadow-[0_15px_40px_rgba(0,0,0,0.3)] hover:bg-primary hover:text-black">Confirmar Conquista</button>
+              <button onClick={handleConfirmConquest} className="w-full bg-black text-primary py-4 rounded-[1rem] font-black uppercase italic tracking-tighter text-2xl active:scale-95 transition-all hover:bg-primary hover:text-black">Confirmar Conquista</button>
             )}
 
             <div className="mt-4">
@@ -593,22 +693,22 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                                     <ul role="listbox" className="absolute left-0 mt-2 w-13 bg-white border rounded shadow-lg z-50">
                                       <li>
                                         <button onMouseDown={(e) => { e.preventDefault(); setAddingType('routine'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
-                                          <span className="text-xl font-bold text-blue-600">R</span>
+                                          <span className="text-xl font-bold text-blue-600">{TYPE_LABELS['routine']}</span>
                                         </button>
                                       </li>
                                       <li>
                                         <button onMouseDown={(e) => { e.preventDefault(); setAddingType('warmup'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
-                                          <span className="text-xl font-bold text-amber-600">W</span>
+                                          <span className="text-xl font-bold text-amber-600">{TYPE_LABELS['warmup']}</span>
                                         </button>
                                       </li>
                                       <li>
                                         <button onMouseDown={(e) => { e.preventDefault(); setAddingType('fail'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
-                                          <span className="text-xl font-bold text-red-600">F</span>
+                                          <span className="text-xl font-bold text-red-600">{TYPE_LABELS['fail']}</span>
                                         </button>
                                       </li>
                                       <li>
                                         <button onMouseDown={(e) => { e.preventDefault(); setAddingType('drop-set'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
-                                          <span className="text-xl font-bold text-green-600">D</span>
+                                          <span className="text-xl font-bold text-green-600">{TYPE_LABELS['drop-set']}</span>
                                         </button>
                                       </li>
                                     </ul>
@@ -623,7 +723,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                               </td>
                               <td className="py-1 text-center">
                                 <div className="flex items-center justify-center gap-2">
-                                  <button onClick={saveNewRow} disabled={!(Number(addingWeight) > 0 && Number(addingReps) > 0)} aria-label="Guardar nuevo registro" className={`p-2 rounded font-black ${Number(addingWeight) > 0 && Number(addingReps) > 0 ? 'bg-black text-primary' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
+                                  <button onClick={saveNewRow} disabled={!(Number(addingWeight) > 0 || Number(addingReps) > 0)} aria-label="Guardar nuevo registro" className={`p-2 rounded font-black ${Number(addingWeight) > 0 || Number(addingReps) > 0 ? 'bg-black text-primary' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
                                     <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M5 10l3 3L18 3" /></svg>
                                   </button>
                                   <button onClick={cancelAddRow} aria-label="Cancelar nuevo registro" className="p-2 rounded border">
@@ -646,16 +746,48 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                               <tr key={normalizedRowId} className="border-b last:border-b-0">
                                 <td className="py-1 text-center">{seq}</td>
                                 <td className="py-1 text-center">
-                                  {l.type === 'warmup' ? (
-                                    <span className="text-xl font-bold text-amber-600">W</span>
-                                  ) : l.type === 'routine' ? (
-                                    <span className="text-xl font-bold text-blue-600">R</span>
-                                  ) : l.type === 'fail' ? (
-                                    <span className="text-xl font-bold text-red-600">F</span>
-                                  ) : l.type === 'drop-set' ? (
-                                    <span className="text-xl font-bold text-green-600">D</span>
+                                  {isEditing ? (
+                                    <div className="relative inline-block" tabIndex={0} onBlur={() => setEditingTypeOpen(false)}>
+                                      <button onClick={() => setEditingTypeOpen(o => !o)} aria-haspopup="listbox" aria-expanded={editingTypeOpen} className="flex items-center gap-2 px-3 py-1 border rounded">
+                                        <span className={"text-xl font-bold " + (editingType === 'warmup' ? 'text-amber-600' : editingType === 'routine' ? 'text-blue-600' : editingType === 'fail' ? 'text-red-600' : editingType === 'drop-set' ? 'text-green-600' : 'text-slate-900')}>{editingType === 'warmup' ? 'W' : editingType === 'routine' ? 'R' : editingType === 'fail' ? 'F' : editingType === 'drop-set' ? 'D' : '-'}</span>
+                                      </button>
+                                      {editingTypeOpen && (
+                                        <ul role="listbox" className="absolute left-0 mt-2 w-13 bg-white border rounded shadow-lg z-50">
+                                          <li>
+                                            <button onMouseDown={(e) => { e.preventDefault(); setEditingType('routine'); setEditingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
+                                              <span className="text-xl font-bold text-blue-600">{TYPE_LABELS['routine']}</span>
+                                            </button>
+                                          </li>
+                                          <li>
+                                            <button onMouseDown={(e) => { e.preventDefault(); setEditingType('warmup'); setEditingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
+                                              <span className="text-xl font-bold text-amber-600">{TYPE_LABELS['warmup']}</span>
+                                            </button>
+                                          </li>
+                                          <li>
+                                            <button onMouseDown={(e) => { e.preventDefault(); setEditingType('fail'); setEditingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
+                                              <span className="text-xl font-bold text-red-600">{TYPE_LABELS['fail']}</span>
+                                            </button>
+                                          </li>
+                                          <li>
+                                            <button onMouseDown={(e) => { e.preventDefault(); setEditingType('drop-set'); setEditingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
+                                              <span className="text-xl font-bold text-green-600">{TYPE_LABELS['drop-set']}</span>
+                                            </button>
+                                          </li>
+                                        </ul>
+                                      )}
+                                    </div>
                                   ) : (
-                                    <span className="text-xl font-bold">-</span>
+                                    l.type === 'warmup' ? (
+                                      <span className="text-xl font-bold text-amber-600">W</span>
+                                    ) : l.type === 'routine' ? (
+                                      <span className="text-xl font-bold text-blue-600">R</span>
+                                    ) : l.type === 'fail' ? (
+                                      <span className="text-xl font-bold text-red-600">F</span>
+                                    ) : l.type === 'drop-set' ? (
+                                      <span className="text-xl font-bold text-green-600">D</span>
+                                    ) : (
+                                      <span className="text-xl font-bold">-</span>
+                                    )
                                   )}
                                 </td>
                                 <td className="py-1 text-center">

@@ -82,6 +82,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     if (activeExercise) {
       setMediaLoading(true);
       setMediaError(false);
+      setMediaPlaying(false);
       // reset log inputs when opening an exercise
       setLogReps('');
       setLogWeight('');
@@ -450,6 +451,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     if (isVideo) {
       return (
         <video
+          ref={el => { videoRef.current = el; }}
           src={mediaUrl}
           className="w-full h-full object-contain bg-transparent opacity-100"
           autoPlay
@@ -461,10 +463,16 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
           onContextMenu={e => { if (isUser) e.preventDefault(); }}
           onDragStart={e => { if (isUser) e.preventDefault(); }}
           controlsList={isUser ? 'nodownload nofullscreen noremoteplayback' : undefined}
-          onLoadedData={() => setMediaLoading(false)}
+          onLoadedData={() => {
+            setMediaLoading(false);
+            if (videoRef.current) setMediaPlaying(!videoRef.current.paused);
+          }}
+          onPlay={() => setMediaPlaying(true)}
+          onPause={() => setMediaPlaying(false)}
           onError={() => {
             setMediaLoading(false);
             setMediaError(true);
+            setMediaPlaying(false);
           }}
         />
       );
@@ -476,7 +484,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
           src={mediaUrl}
           className={`w-full h-full object-contain transition-opacity duration-500 ${mediaLoading ? 'opacity-0' : 'opacity-100'}`}
           alt="Guía Visual"
-          onLoad={() => setMediaLoading(false)}
+          onLoad={() => { setMediaLoading(false); setMediaPlaying(true); }}
           onError={() => {
             setMediaLoading(false);
             setMediaError(true);
@@ -614,7 +622,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                <h5 className="text-2xl font-black uppercase italic tracking-tighter leading-tight pr-12 text-slate-900">{activeExercise.name}</h5>
             </div>
 
-            <div className="aspect-video bg-black rounded-[1rem] overflow-hidden relative group flex items-center justify-center">
+            <div className={`aspect-video ${!mediaPlaying ? 'bg-black' : 'bg-transparent'} rounded-[1rem] overflow-hidden relative group flex items-center justify-center`}>
               {mediaLoading && !mediaError && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 bg-slate-900 z-10">
                    <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>

@@ -350,10 +350,28 @@ app.patch('/api/users/:id', async (req, res) => {
       else delete updates.subscriptionEndDate;
     }
 
-    await db.collection("users").updateOne(filter, { $set: updates });
+    // Sanitize `updates` to avoid NoSQL injection via update operators or nested objects
+    const isPrimitive = (v) => v === null || ['string', 'number', 'boolean'].includes(typeof v);
+    const isArrayOfPrimitives = (v) => Array.isArray(v) && v.every(isPrimitive);
+    const sanitizedUpdates = {};
+    if (updates && typeof updates === 'object') {
+      for (const k of Object.keys(updates)) {
+        if (typeof k !== 'string' || k.startsWith('$')) continue;
+        const val = updates[k];
+        if (isPrimitive(val) || isArrayOfPrimitives(val)) {
+          sanitizedUpdates[k] = val;
+        }
+      }
+    }
+
+    if (Object.keys(sanitizedUpdates).length === 0) {
+      return res.status(400).json({ error: 'INVALID_UPDATES' });
+    }
+
+    await db.collection("users").updateOne(filter, { $set: sanitizedUpdates });
     // Fetch and return the updated user document
     const updatedUser = await db.collection('users').findOne(filter);
-    await writeAuditLog(req.body.currentUser?.id || 'ADMIN', 'UPDATE_USER', { userId: idParam, updates });
+    await writeAuditLog(req.body.currentUser?.id || 'ADMIN', 'UPDATE_USER', { userId: idParam, updates: sanitizedUpdates });
     if (updatedUser) {
       // remove sensitive fields before returning
       const resp = { ...updatedUser };
@@ -983,13 +1001,21 @@ app.get('/api/logs', async (req, res) => {
 
 app.post('/api/logs', async (req, res) => {
   try {
-    const body = req.body || {};
-    const { userId, exerciseId, routineId, weightUsed, weightUnit, repsDone, rpe, notes, type, total } = body;
-    if (!userId || !exerciseId) return res.status(400).json({ error: 'MISSING_FIELDS' });
+  const body = req.body || {};
+  const { userId, exerciseId, routineId, weightUsed, weightUnit, repsDone, rpe, notes, type, total } = body;
+  if (!userId || !exerciseId) return res.status(400).json({ error: 'MISSING_FIELDS' });
 
-    // Validate that the exercise exists in an active routine for this user (if routineId provided, prefer that)
-    const routinesColl = db.collection('routines');
-    const query = (routineId && routineId !== 'none') ? { userId, id: routineId } : { userId, status: { $ne: 'ARCHIVED' } };
+  // Reject non-primitive id values to prevent NoSQL injection (objects with operators)
+  if (typeof userId !== 'string' && typeof userId !== 'number') return res.status(400).json({ error: 'INVALID_FIELDS' });
+  if (typeof exerciseId !== 'string' && typeof exerciseId !== 'number') return res.status(400).json({ error: 'INVALID_FIELDS' });
+
+  const sanitizedUserId = userId;
+  const sanitizedExerciseId = exerciseId;
+  const sanitizedRoutineId = (routineId && routineId !== 'none' && (typeof routineId === 'string' || typeof routineId === 'number')) ? routineId : null;
+
+  // Validate that the exercise exists in an active routine for this user (if routineId provided and valid, prefer that)
+  const routinesColl = db.collection('routines');
+  const query = sanitizedRoutineId ? { userId: sanitizedUserId, id: { $eq: sanitizedRoutineId } } : { userId: sanitizedUserId, status: { $ne: 'ARCHIVED' } };
     const routine = await routinesColl.findOne(query);
     let allowed = false;
     // If there's no routine record for this user, allow logging so clients
@@ -1021,9 +1047,9 @@ app.post('/api/logs', async (req, res) => {
     // If not allowed by routine assignment, allow the first-ever log for this
     // (userId, exerciseId) pair so clients can record the first instance even
     // if routine data is out-of-sync or not yet assigned.
-    if (!allowed) {
+      if (!allowed) {
       try {
-        const existing = await db.collection('logs').countDocuments({ userId, exerciseId });
+        const existing = await db.collection('logs').countDocuments({ userId: { $eq: sanitizedUserId }, exerciseId: { $eq: sanitizedExerciseId } });
         if (existing === 0) {
           allowed = true;
         }
@@ -1039,9 +1065,9 @@ app.post('/api/logs', async (req, res) => {
     const computedTotal = (typeof total === 'number') ? total : ((typeof weightUsed === 'number' && typeof repsDone === 'number') ? (weightUsed * repsDone) : undefined);
 
     const doc = {
-      userId,
-      exerciseId,
-      routineId: routineId || null,
+      userId: sanitizedUserId,
+      exerciseId: sanitizedExerciseId,
+      routineId: sanitizedRoutineId || null,
       weightUsed: weightUsed || 0,
       weightUnit: (weightUnit || 'lb'),
       total: computedTotal,
@@ -1065,6 +1091,9 @@ app.patch('/api/logs/:id', async (req, res) => {
   try {
     const idParam = String(req.params.id || '');
     const updates = req.body || {};
+    // Ensure idParam is a simple string (prevent NoSQL injection via objects)
+    if (typeof idParam !== 'string' || idParam.length === 0) return res.status(400).json({ error: 'INVALID_ID' });
+    const sanitizedIdParam = idParam;
     if (updates.weightUsed != null) updates.weightUsed = Number(updates.weightUsed);
     if (updates.repsDone != null) updates.repsDone = Number(updates.repsDone);
     if (updates.total != null) updates.total = Number(updates.total);
@@ -1072,16 +1101,16 @@ app.patch('/api/logs/:id', async (req, res) => {
     let updated = null;
     if (ObjectId.isValid(idParam)) {
       const objId = new ObjectId(idParam);
-      const r = await db.collection('logs').updateOne({ _id: objId }, { $set: updates });
+      const r = await db.collection('logs').updateOne({ _id: { $eq: objId } }, { $set: updates });
       if (r && r.matchedCount && r.matchedCount > 0) {
-        updated = await db.collection('logs').findOne({ _id: objId });
+        updated = await db.collection('logs').findOne({ _id: { $eq: objId } });
       }
     }
 
     if (!updated) {
-      const r2 = await db.collection('logs').updateOne({ id: idParam }, { $set: updates });
+      const r2 = await db.collection('logs').updateOne({ id: { $eq: sanitizedIdParam } }, { $set: updates });
       if (r2 && r2.matchedCount && r2.matchedCount > 0) {
-        updated = await db.collection('logs').findOne({ id: idParam });
+        updated = await db.collection('logs').findOne({ id: { $eq: sanitizedIdParam } });
       }
     }
 
@@ -1100,7 +1129,7 @@ app.delete('/api/logs/:id', async (req, res) => {
       const r = await db.collection('logs').deleteOne({ _id: new ObjectId(idParam) });
       if (r && r.deletedCount && r.deletedCount > 0) return res.status(204).send();
     }
-    const r2 = await db.collection('logs').deleteOne({ id: idParam });
+    const r2 = await db.collection('logs').deleteOne({ id: { $eq: sanitizedIdParam } });
     if (r2 && r2.deletedCount && r2.deletedCount > 0) return res.status(204).send();
     return res.status(404).json({ error: 'NOT_FOUND' });
   } catch (err) {

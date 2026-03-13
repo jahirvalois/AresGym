@@ -39,6 +39,10 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const [mediaLoading, setMediaLoading] = useState(true);
   const [mediaError, setMediaError] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const addingTypeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const editingTypeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [addingDropdownStyle, setAddingDropdownStyle] = useState<{top:number,left:number}|null>(null);
+  const [editingDropdownStyle, setEditingDropdownStyle] = useState<{top:number,left:number}|null>(null);
   const [mediaPlaying, setMediaPlaying] = useState<boolean>(false);
   const TYPE_LABELS: Record<string, string> = {
     'warmup': 'Warmup',
@@ -209,6 +213,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     setAddingWeight('');
     setAddingReps('');
     setAddingType('-');
+    // open the add-row inputs but do NOT auto-open the type menu or focus it
     setAddingRow(true);
   };
 
@@ -247,11 +252,44 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   };
 
   const startEditRow = (row: any) => {
-    const id = getIdFromRow(row);
-    setEditingRowId(id || null);
+    const normalizedRowId = (row && (row.id || (row._id && (typeof row._id === 'object' ? (row._id.$oid || String(row._id)) : String(row._id))) || (row.exerciseId ? `${row.exerciseId}-${row.date}` : undefined))) || undefined;
+    setEditingRowId(normalizedRowId ? String(normalizedRowId) : null);
     setEditingWeight(String(row.weightUsed ?? row.weight ?? ''));
     setEditingReps(String(row.repsDone ?? row.reps ?? ''));
     setEditingType((row.type as any) || 'routine');
+    // do NOT auto-open the editing dropdown; user will open it manually
+  };
+
+  const computeMenuPosition = (btn: HTMLElement | null, approxHeight = 160) => {
+    if (!btn) return null;
+    const r = btn.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - r.bottom;
+    const openAbove = spaceBelow < approxHeight;
+    const top = openAbove ? Math.max(8, r.top - approxHeight) : Math.min(window.innerHeight - 8, r.bottom + 4);
+    const left = Math.min(Math.max(8, r.left), window.innerWidth - 200);
+    return { top, left };
+  };
+
+  const toggleAddingType = (btn?: HTMLElement | null) => {
+    if (!addingTypeButtonRef.current && btn) addingTypeButtonRef.current = btn as HTMLButtonElement;
+    const willOpen = !addingTypeOpen;
+    if (willOpen) {
+      setAddingDropdownStyle(computeMenuPosition(addingTypeButtonRef.current));
+    } else {
+      setAddingDropdownStyle(null);
+    }
+    setAddingTypeOpen(willOpen);
+  };
+
+  const toggleEditingType = (btn?: HTMLElement | null) => {
+    if (!editingTypeButtonRef.current && btn) editingTypeButtonRef.current = btn as HTMLButtonElement;
+    const willOpen = !editingTypeOpen;
+    if (willOpen) {
+      setEditingDropdownStyle(computeMenuPosition(editingTypeButtonRef.current));
+    } else {
+      setEditingDropdownStyle(null);
+    }
+    setEditingTypeOpen(willOpen);
   };
 
   const cancelEditRow = () => {
@@ -674,79 +712,82 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                   <div className="flex items-center justify-center mb-2">
                       <h4 className="font-black uppercase text-sm text-slate-600 text-center w-full">Historial de Registros</h4>
                     </div>
-                {exerciseLogs.length === 0 ? (
-                  <div className="text-[13px] text-slate-400">Aún no hay registros en esta página para este ejercicio.</div>
-                ) : (
-                  <div className="w-full overflow-y-auto overflow-x-auto max-h-55">
-                    <table className="w-full text-sm bg-gray-100">
-                      <thead className="text-left text-[12px] text-slate-500 border-b sticky top-0 bg-white z-10">
-                          <tr>
-                            <th className="py-1 text-center">Serie</th>
-                            <th className="py-1 text-center">Tipo</th>
-                            <th className="py-1 text-center">Peso (lb)</th>
-                            <th className="py-1 text-center">Reps</th>
-                            <th className="py-1 text-center">Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {addingRow && (
-                            <tr className="border-b bg-yellow-50">
-                              <td className="py-1 text-center">-</td>
-                              <td className="py-1 text-center">
-                                <div className="relative inline-block" tabIndex={0} onBlur={() => setAddingTypeOpen(false)}>
-                                    <button onClick={() => setAddingTypeOpen(o => !o)} aria-haspopup="listbox" aria-expanded={addingTypeOpen} className="flex items-center gap-2 px-3 py-1 border rounded">
-                                      <span className={"text-xl font-bold " + (addingType === 'warmup' ? 'text-amber-600' : addingType === 'routine' ? 'text-blue-600' : addingType === 'fail' ? 'text-red-600' : addingType === 'drop-set' ? 'text-green-600' : 'text-slate-900')}>{addingType === 'warmup' ? 'W' : addingType === 'routine' ? 'R' : addingType === 'fail' ? 'F' : addingType === 'drop-set' ? 'D' : '-'}</span>
-                                  </button>
+                <div className="w-full overflow-y-auto overflow-x-auto max-h-55">
+                  <table className="w-full text-sm bg-gray-100">
+                    <thead className="text-left text-[12px] text-slate-500 border-b sticky top-0 bg-white z-10">
+                        <tr>
+                          <th className="py-1 text-center">Serie</th>
+                          <th className="py-1 text-center">Tipo</th>
+                          <th className="py-1 text-center">Peso (lb)</th>
+                          <th className="py-1 text-center">Reps</th>
+                          <th className="py-1 text-center">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {addingRow && (
+                          <tr className="border-b bg-yellow-50">
+                            <td className="py-1 text-center">-</td>
+                            <td className="py-1 text-center">
+                              <div className="relative inline-block" tabIndex={0} onBlur={() => setAddingTypeOpen(false)}>
+                                    <button ref={addingTypeButtonRef} onClick={(e) => toggleAddingType(e.currentTarget)} aria-haspopup="listbox" aria-expanded={addingTypeOpen} className="flex items-center gap-2 px-3 py-1 border rounded">
+                                    <span className={"text-xl font-bold " + (addingType === 'warmup' ? 'text-amber-600' : addingType === 'routine' ? 'text-blue-600' : addingType === 'fail' ? 'text-red-600' : addingType === 'drop-set' ? 'text-green-600' : 'text-slate-900')}>{addingType === 'warmup' ? 'W' : addingType === 'routine' ? 'R' : addingType === 'fail' ? 'F' : addingType === 'drop-set' ? 'D' : '-'}</span>
+                                </button>
                                   {addingTypeOpen && (
-                                    <ul role="listbox" className="absolute left-0 mt-2 w-13 bg-white border rounded shadow-lg z-50">
-                                      <li>
-                                        <button onMouseDown={(e) => { e.preventDefault(); setAddingType('routine'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
-                                          <span className="text-xl font-bold text-blue-600">{TYPE_LABELS['routine']}</span>
-                                        </button>
-                                      </li>
-                                      <li>
-                                        <button onMouseDown={(e) => { e.preventDefault(); setAddingType('warmup'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
-                                          <span className="text-xl font-bold text-amber-600">{TYPE_LABELS['warmup']}</span>
-                                        </button>
-                                      </li>
-                                      <li>
-                                        <button onMouseDown={(e) => { e.preventDefault(); setAddingType('fail'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
-                                          <span className="text-xl font-bold text-red-600">{TYPE_LABELS['fail']}</span>
-                                        </button>
-                                      </li>
-                                      <li>
-                                        <button onMouseDown={(e) => { e.preventDefault(); setAddingType('drop-set'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
-                                          <span className="text-xl font-bold text-green-600">{TYPE_LABELS['drop-set']}</span>
-                                        </button>
-                                      </li>
-                                    </ul>
+                                    <ul role="listbox" style={addingDropdownStyle ? { position: 'fixed', top: addingDropdownStyle.top, left: addingDropdownStyle.left, zIndex: 9999, minWidth: 140 } : undefined} className="bg-white border rounded shadow-lg z-50">
+                                    <li>
+                                      <button onMouseDown={(e) => { e.preventDefault(); setAddingType('routine'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
+                                        <span className="text-xl font-bold text-blue-600">{TYPE_LABELS['routine']}</span>
+                                      </button>
+                                    </li>
+                                    <li>
+                                      <button onMouseDown={(e) => { e.preventDefault(); setAddingType('warmup'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
+                                        <span className="text-xl font-bold text-amber-600">{TYPE_LABELS['warmup']}</span>
+                                      </button>
+                                    </li>
+                                    <li>
+                                      <button onMouseDown={(e) => { e.preventDefault(); setAddingType('fail'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
+                                        <span className="text-xl font-bold text-red-600">{TYPE_LABELS['fail']}</span>
+                                      </button>
+                                    </li>
+                                    <li>
+                                      <button onMouseDown={(e) => { e.preventDefault(); setAddingType('drop-set'); setAddingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
+                                        <span className="text-xl font-bold text-green-600">{TYPE_LABELS['drop-set']}</span>
+                                      </button>
+                                    </li>
+                                  </ul>
                                   )}
-                                </div>
-                              </td>
-                              <td className="py-1 text-center">
-                                <input type="number" value={addingWeight} onChange={e => setAddingWeight(e.target.value)} placeholder="0" className="w-20 p-1 border rounded text-center mx-auto" />
-                              </td>
-                              <td className="py-1 text-center">
-                                <input type="number" value={addingReps} onChange={e => setAddingReps(e.target.value)} placeholder="0" className="w-20 p-1 border rounded text-center mx-auto" />
-                              </td>
-                              <td className="py-1 text-center">
-                                <div className="flex items-center justify-center gap-2">
-                                  <button onClick={saveNewRow} disabled={!(Number(addingWeight) > 0 || Number(addingReps) > 0)} aria-label="Guardar nuevo registro" className={`p-2 rounded font-black ${Number(addingWeight) > 0 || Number(addingReps) > 0 ? 'bg-black text-primary' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
-                                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M5 10l3 3L18 3" /></svg>
-                                  </button>
-                                  <button onClick={cancelAddRow} aria-label="Cancelar nuevo registro" className="p-2 rounded border">
-                                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 6l8 8M6 14L14 6" /></svg>
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                          {exerciseLogs.map((l: any, idx: number) => {
-                          const indexInPage = idx;
-                          const skip = (exercisePage || 0) * EXERCISE_PAGE_SIZE;
-                          const seq = (typeof exerciseTotal === 'number' && exerciseTotal > 0)
-                            ? Math.max(1, exerciseTotal - (skip + indexInPage))
-                            : (skip + indexInPage + 1);
+                              </div>
+                            </td>
+                            <td className="py-1 text-center">
+                              <input type="number" value={addingWeight} onChange={e => setAddingWeight(e.target.value)} placeholder="0" className="w-20 p-1 border rounded text-center mx-auto" />
+                            </td>
+                            <td className="py-1 text-center">
+                              <input type="number" value={addingReps} onChange={e => setAddingReps(e.target.value)} placeholder="0" className="w-20 p-1 border rounded text-center mx-auto" />
+                            </td>
+                            <td className="py-1 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <button onClick={saveNewRow} disabled={!(Number(addingWeight) > 0 || Number(addingReps) > 0)} aria-label="Guardar nuevo registro" className={`p-2 rounded font-black ${Number(addingWeight) > 0 || Number(addingReps) > 0 ? 'bg-black text-primary' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>
+                                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M5 10l3 3L18 3" /></svg>
+                                </button>
+                                <button onClick={cancelAddRow} aria-label="Cancelar nuevo registro" className="p-2 rounded border">
+                                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 6l8 8M6 14L14 6" /></svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+
+                        {exerciseLogs.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="py-4 text-center text-[13px] text-slate-400">Aún no hay registros en esta página para este ejercicio.</td>
+                          </tr>
+                        ) : (
+                          exerciseLogs.map((l: any, idx: number) => {
+                            const indexInPage = idx;
+                            const skip = (exercisePage || 0) * EXERCISE_PAGE_SIZE;
+                            const seq = (typeof exerciseTotal === 'number' && exerciseTotal > 0)
+                              ? Math.max(1, exerciseTotal - (skip + indexInPage))
+                              : (skip + indexInPage + 1);
 
                             const normalizedRowId = (l.id) || (l._id && (typeof l._id === 'object' ? (l._id.$oid || String(l._id)) : String(l._id))) || `${l.exerciseId}-${l.date}`;
                             const isEditing = String(editingRowId) === String(normalizedRowId);
@@ -756,11 +797,11 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                                 <td className="py-1 text-center">
                                   {isEditing ? (
                                     <div className="relative inline-block" tabIndex={0} onBlur={() => setEditingTypeOpen(false)}>
-                                      <button onClick={() => setEditingTypeOpen(o => !o)} aria-haspopup="listbox" aria-expanded={editingTypeOpen} className="flex items-center gap-2 px-3 py-1 border rounded">
+                                      <button ref={(el) => { if (isEditing) editingTypeButtonRef.current = el; }} onClick={(e) => toggleEditingType(e.currentTarget)} aria-haspopup="listbox" aria-expanded={editingTypeOpen} className="flex items-center gap-2 px-3 py-1 border rounded">
                                         <span className={"text-xl font-bold " + (editingType === 'warmup' ? 'text-amber-600' : editingType === 'routine' ? 'text-blue-600' : editingType === 'fail' ? 'text-red-600' : editingType === 'drop-set' ? 'text-green-600' : 'text-slate-900')}>{editingType === 'warmup' ? 'W' : editingType === 'routine' ? 'R' : editingType === 'fail' ? 'F' : editingType === 'drop-set' ? 'D' : '-'}</span>
                                       </button>
                                       {editingTypeOpen && (
-                                        <ul role="listbox" className="absolute left-0 mt-2 w-13 bg-white border rounded shadow-lg z-50">
+                                        <ul role="listbox" style={editingDropdownStyle ? { position: 'fixed', top: editingDropdownStyle.top, left: editingDropdownStyle.left, zIndex: 9999, minWidth: 140 } : undefined} className="bg-white border rounded shadow-lg z-50">
                                           <li>
                                             <button onMouseDown={(e) => { e.preventDefault(); setEditingType('routine'); setEditingTypeOpen(false); }} className="w-full flex items-center gap-2 px-3 py-1 hover:bg-slate-50">
                                               <span className="text-xl font-bold text-blue-600">{TYPE_LABELS['routine']}</span>
@@ -837,11 +878,11 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                                 </td>
                               </tr>
                             );
-                        })}
+                          })
+                        )}
                       </tbody>
                     </table>
                   </div>
-                )}
                 {/* Delete confirmation modal */}
                 {showDeleteConfirm && deleteTarget && (
                   <div className="fixed inset-0 z-[260] flex items-center justify-center">

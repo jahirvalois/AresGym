@@ -23,7 +23,26 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 // Middleware
-app.use(cors({ origin: true, credentials: true }));
+// Configure CORS using a whitelist to avoid permissive origin:true usage.
+// Set `ALLOWED_ORIGINS` as a comma-separated env var (e.g. "https://app.example.com,http://localhost:5173").
+const allowedOrigins = (process.env.ALLOWED_ORIGINS)
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Deny explicit 'null' origins (sandboxed/opaque), do not allow them
+    if (origin === 'null') return callback(null, false);
+    // Allow requests with no origin (server-to-server tools like curl, Postman)
+    if (!origin) return callback(null, true);
+    // Allow if origin is whitelisted
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Not allowed
+    return callback(null, false);
+  },
+  credentials: true,
+}));
 // Add relaxed COOP/COEP headers to avoid opener-policy blocking postMessage from tooling
 app.use((req, res, next) => {
   try {
@@ -653,13 +672,15 @@ app.get('/api/routines', async (req, res) => {
     } else if (typeof rawUserId === 'number') {
       userId = rawUserId;
     }
+    const requesterRole = (req.headers['x-user-role'] || '').toString().toUpperCase();
+    const collectionName = requesterRole === 'INDEPENDENT' ? 'independent_routines' : 'routines';
     const filter = userId ? { userId: { $eq: userId } } : {};
     try {
-      const routines = await db.collection("routines").find(filter).sort({ createdAt: -1 }).toArray();
+      const routines = await db.collection(collectionName).find(filter).sort({ createdAt: -1 }).toArray();
       return res.json(routines);
     } catch (err) {
       console.warn('Routines query with sort failed, falling back to in-memory sort:', err?.message || err);
-      const routines = await db.collection('routines').find(filter).toArray();
+      const routines = await db.collection(collectionName).find(filter).toArray();
       routines.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       return res.json(routines);
     }
@@ -673,12 +694,132 @@ app.post('/api/routines', async (req, res) => {
     if (!userId || (typeof userId !== 'string' && typeof userId !== 'number')) {
       return res.status(400).json({ error: 'Invalid userId' });
     }
+    const requesterRole = (req.headers['x-user-role'] || '').toString().toUpperCase();
+    const collectionName = requesterRole === 'INDEPENDENT' ? 'independent_routines' : 'routines';
     const newRoutine = { ...routine, coachId, status: 'ACTIVE', createdAt: new Date().toISOString() };
-    await db.collection("routines").updateMany({ userId: { $eq: userId } }, { $set: { status: 'ARCHIVED' } });
-    const result = await db.collection("routines").insertOne(newRoutine);
-    await writeAuditLog(coachId || 'COACH', 'CREATE_ROUTINE', { routineId: result.insertedId.toString(), userId });
+    await db.collection(collectionName).updateMany({ userId: { $eq: userId } }, { $set: { status: 'ARCHIVED' } });
+    const result = await db.collection(collectionName).insertOne(newRoutine);
+    await writeAuditLog(coachId || 'COACH', 'CREATE_ROUTINE', { routineId: result.insertedId.toString(), userId, collection: collectionName });
     res.status(201).json({ ...newRoutine, _id: result.insertedId });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Support PATCH and DELETE for individual routines
+app.patch('/api/routines/:id', async (req, res) => {
+  try {
+    const idParam = String(req.params.id || '');
+    if (!idParam) return res.status(400).json({ error: 'INVALID_ID' });
+    const updates = req.body?.updates || {};
+    // sanitize updates: allow only primitive fields and arrays of primitives
+    const isPrimitive = (v) => v === null || ['string', 'number', 'boolean'].includes(typeof v);
+    const isArrayOfPrimitives = (v) => Array.isArray(v) && v.every(isPrimitive);
+    const sanitized = {};
+    for (const k of Object.keys(updates || {})) {
+      if (typeof k !== 'string' || k.startsWith('$')) continue;
+      const val = updates[k];
+      if (isPrimitive(val) || isArrayOfPrimitives(val)) sanitized[k] = val;
+    }
+
+    const requesterId = (req.headers['x-user-id'] || '').toString();
+    const requesterRole = (req.headers['x-user-role'] || '').toString().toUpperCase();
+
+    // Helper to try finding in a collection
+    const findInCollection = async (collName) => {
+      let doc = null;
+      if (ObjectId.isValid(idParam)) {
+        try { doc = await db.collection(collName).findOne({ _id: new ObjectId(idParam) }); } catch (e) { doc = null; }
+      }
+      if (!doc) {
+        doc = await db.collection(collName).findOne({ id: { $eq: idParam } });
+      }
+      return doc;
+    };
+
+    // Try to find the routine in either collection so we don't miss independent docs
+    let collectionName = 'routines';
+    let routine = await findInCollection('routines');
+    if (!routine) {
+      routine = await findInCollection('independent_routines');
+      if (routine) collectionName = 'independent_routines';
+    }
+
+    if (!routine) return res.status(404).json({ error: 'NOT_FOUND' });
+
+    // Permission: owner or COACH/ADMIN
+    const ownerId = routine.userId || routine.user || '';
+    if (String(requesterRole) !== 'COACH' && String(requesterRole) !== 'ADMIN' && String(requesterId) !== String(ownerId)) {
+      return res.status(403).json({ error: 'FORBIDDEN' });
+    }
+
+    // perform update
+    let updated = null;
+    if (ObjectId.isValid(idParam)) {
+      const r = await db.collection(collectionName).updateOne({ _id: new ObjectId(idParam) }, { $set: sanitized });
+      if (r && r.matchedCount && r.matchedCount > 0) updated = await db.collection(collectionName).findOne({ _id: new ObjectId(idParam) });
+    }
+    if (!updated) {
+      const r2 = await db.collection(collectionName).updateOne({ id: { $eq: idParam } }, { $set: sanitized });
+      if (r2 && r2.matchedCount && r2.matchedCount > 0) updated = await db.collection(collectionName).findOne({ id: { $eq: idParam } });
+    }
+
+    if (!updated) return res.status(404).json({ error: 'NOT_FOUND' });
+    await writeAuditLog(requesterId || 'SYSTEM', 'UPDATE_ROUTINE', { routineId: idParam, collection: collectionName, updates: sanitized });
+    return res.json(updated);
+  } catch (err) {
+    console.warn('Failed to patch routine', err?.message || err);
+    return res.status(500).json({ error: err?.message || 'ROUTINE_UPDATE_FAILED' });
+  }
+});
+
+app.delete('/api/routines/:id', async (req, res) => {
+  try {
+    const idParam = String(req.params.id || '');
+    if (!idParam) return res.status(400).json({ error: 'INVALID_ID' });
+    const requesterId = (req.headers['x-user-id'] || '').toString();
+    const requesterRole = (req.headers['x-user-role'] || '').toString().toUpperCase();
+
+    const findInCollection = async (collName) => {
+      let doc = null;
+      if (ObjectId.isValid(idParam)) {
+        try { doc = await db.collection(collName).findOne({ _id: new ObjectId(idParam) }); } catch (e) { doc = null; }
+      }
+      if (!doc) doc = await db.collection(collName).findOne({ id: { $eq: idParam } });
+      return doc;
+    };
+
+    // Try both collections so deletes work regardless of which collection stored the doc
+    let collectionName = 'routines';
+    let routine = await findInCollection('routines');
+    if (!routine) {
+      routine = await findInCollection('independent_routines');
+      if (routine) collectionName = 'independent_routines';
+    }
+
+    if (!routine) return res.status(404).json({ error: 'NOT_FOUND' });
+
+    const ownerId = routine.userId || routine.user || '';
+    if (String(requesterRole) !== 'COACH' && String(requesterRole) !== 'ADMIN' && String(requesterId) !== String(ownerId)) {
+      return res.status(403).json({ error: 'FORBIDDEN' });
+    }
+
+    // attempt delete
+    let deleted = null;
+    if (ObjectId.isValid(idParam)) {
+      const r = await db.collection(collectionName).deleteOne({ _id: new ObjectId(idParam) });
+      if (r && r.deletedCount && r.deletedCount > 0) deleted = true;
+    }
+    if (!deleted) {
+      const r2 = await db.collection(collectionName).deleteOne({ id: { $eq: idParam } });
+      if (r2 && r2.deletedCount && r2.deletedCount > 0) deleted = true;
+    }
+
+    if (!deleted) return res.status(404).json({ error: 'NOT_FOUND' });
+    await writeAuditLog(requesterId || 'SYSTEM', 'DELETE_ROUTINE', { routineId: idParam, collection: collectionName });
+    return res.status(204).send();
+  } catch (err) {
+    console.warn('Failed to delete routine', err?.message || err);
+    return res.status(500).json({ error: err?.message || 'ROUTINE_DELETE_FAILED' });
+  }
 });
 
 // Ejercicios y Media

@@ -199,7 +199,19 @@ export const apiService = {
   async getRoutines(role: UserRole, userId?: string) {
     try {
       const query = userId ? `?userId=${userId}` : '';
-      const routines = await request<MonthlyRoutine[]>(`/routines${query}`);
+      // attach session headers so server can route to the correct collection
+      let headers: any = {};
+      try {
+        const sess = localStorage.getItem('ares_session');
+        if (sess) {
+          const parsed = JSON.parse(sess) as any;
+          if (parsed?.user) {
+            headers['x-user-id'] = parsed.user.id;
+            headers['x-user-role'] = parsed.user.role;
+          }
+        }
+      } catch (e) {}
+      const routines = await request<MonthlyRoutine[]>(`/routines${query}`, { headers });
       // normalize _id -> id for routines coming from Mongo/Cosmos
       return routines.map(r => {
         if ((r as any).id) return r;
@@ -217,8 +229,21 @@ export const apiService = {
 
   async createRoutine(coachId: string, routine: Partial<MonthlyRoutine>) {
     try {
+      // attach session user headers when available to allow permission checks server-side
+      let headers: any = {};
+      try {
+        const sess = localStorage.getItem('ares_session');
+        if (sess) {
+          const parsed = JSON.parse(sess) as any;
+          if (parsed?.user) {
+            headers['x-user-id'] = parsed.user.id;
+            headers['x-user-role'] = parsed.user.role;
+          }
+        }
+      } catch (e) {}
       return await request<MonthlyRoutine>('/routines', {
         method: 'POST',
+        headers,
         body: JSON.stringify({ coachId, routine })
       });
     } catch {
@@ -226,6 +251,41 @@ export const apiService = {
       const r = { id: Math.random().toString(36).substr(2, 9), ...routine, coachId, status: RoutineStatus.ACTIVE, createdAt: new Date().toISOString() };
       saveLocal('routines', [...routines, r]);
       return r as MonthlyRoutine;
+    }
+  },
+  async updateRoutine(currentUser: User, routineId: string, updates: Partial<MonthlyRoutine>) {
+    try {
+      return await request<MonthlyRoutine>(`/routines/${encodeURIComponent(routineId)}`, {
+        method: 'PATCH',
+        headers: {
+          'x-user-id': currentUser.id,
+          'x-user-role': currentUser.role
+        },
+        body: JSON.stringify({ updates })
+      });
+    } catch {
+      // local fallback
+      const routines = getLocal('routines', []);
+      const updated = routines.map((r: any) => (String(r.id) === String(routineId) ? { ...r, ...updates } : r));
+      saveLocal('routines', updated);
+      return updated.find((r: any) => String(r.id) === String(routineId));
+    }
+  },
+
+  async deleteRoutine(currentUser: User, routineId: string) {
+    try {
+      await request<void>(`/routines/${encodeURIComponent(routineId)}`, {
+        method: 'DELETE',
+        headers: {
+          'x-user-id': currentUser.id,
+          'x-user-role': currentUser.role
+        }
+      });
+      return true;
+    } catch {
+      const routines = getLocal('routines', []);
+      saveLocal('routines', routines.filter((r: any) => String(r.id) !== String(routineId)));
+      return true;
     }
   },
 
@@ -317,7 +377,18 @@ export const apiService = {
 
   async getRoutinesStrict(role: UserRole, userId?: string) {
     const query = userId ? `?userId=${userId}` : '';
-    const routines = await request<MonthlyRoutine[]>(`/routines${query}`);
+    let headers: any = {};
+    try {
+      const sess = localStorage.getItem('ares_session');
+      if (sess) {
+        const parsed = JSON.parse(sess) as any;
+        if (parsed?.user) {
+          headers['x-user-id'] = parsed.user.id;
+          headers['x-user-role'] = parsed.user.role;
+        }
+      }
+    } catch (e) {}
+    const routines = await request<MonthlyRoutine[]>(`/routines${query}`, { headers });
     return routines.map(r => {
       if ((r as any).id) return r;
       if ((r as any)._id) {

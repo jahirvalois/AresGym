@@ -12,6 +12,7 @@ import { Layout } from './components/Layout';
 import { DashboardAdmin } from './pages/DashboardAdmin';
 import { DashboardCoach } from './pages/DashboardCoach';
 import { DashboardUser } from './pages/DashboardUser';
+import { RoutineCreator } from './pages/RoutineCreator';
 import { BrandingManager } from './pages/BrandingManager';
 
 type AuthView = 'login' | 'forgot-password' | 'reset-password' | 'first-login';
@@ -805,6 +806,12 @@ const App: React.FC = () => {
             initialSelectedUser={selectedUserForRoutine}
             setActiveTab={setActiveTab}
           />
+        )}
+        {activeTab === 'create-routine' && user.role === UserRole.INDEPENDENT && (
+          <RoutineCreator currentUser={user} />
+        )}
+        {activeTab === 'do-routine' && user.role === UserRole.INDEPENDENT && (
+          <DashboardUser currentUser={user} />
         )}
         <Popup open={popup.open} type={popup.type} title={popup.title} message={popup.message} onClose={() => setPopup({ ...popup, open: false })} />
       </Layout>

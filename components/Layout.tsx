@@ -36,6 +36,8 @@ export const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, active
     { id: 'dashboard', label: 'Dashboard', roles: [UserRole.USER] },
     { id: 'users', label: 'Guerreros', roles: [UserRole.ADMIN, UserRole.COACH] },
     { id: 'routines', label: 'Arsenal (Rutinas)', roles: [UserRole.COACH, UserRole.ADMIN] },
+    { id: 'create-routine', label: 'Crear Rutina', roles: [UserRole.INDEPENDENT] },
+    { id: 'do-routine', label: 'Realizar Rutina', roles: [UserRole.INDEPENDENT] },
     { id: 'animations', label: 'Arsenal & Animaciones', roles: [UserRole.ADMIN] },
     { id: 'branding', label: 'Personalización', roles: [UserRole.ADMIN] },
     { id: 'audit', label: 'Bitácora', roles: [UserRole.ADMIN] },
@@ -55,6 +57,14 @@ export const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, active
       case 'routines':
         return (
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3M3 11h18M5 21h14a2 2 0 002-2V7H3v12a2 2 0 002 2z"/></svg>
+        );
+      case 'create-routine':
+        return (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+        );
+      case 'do-routine':
+        return (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v8m-4-4h8"/></svg>
         );
       case 'animations':
         return (

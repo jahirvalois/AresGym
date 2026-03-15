@@ -54,6 +54,12 @@ MONGODB_URI="mongodb+srv://<usuario>:<password>@.../AresGymCloud?retryWrites=tru
 PORT=8080
 ```
 
+Puedes añadir `ALLOWED_ORIGINS` para controlar CORS (lista separada por comas):
+
+```
+ALLOWED_ORIGINS="https://aresgym.com.mx,https://app.aresgym.com,http://localhost:5173"
+```
+
 3) Ejecutar en desarrollo (Vite HMR para frontend):
 
 ```bash
@@ -111,6 +117,8 @@ En Azure Portal → App Service → Settings → **Configuration** → Applicati
 | `MONGODB_URI` | `mongodb://user:pass@...cosmos.azure.com:10255/?...` |
 | `PORT` | `8080` |
 | `NODE_ENV` | `production` |
+
+| `ALLOWED_ORIGINS` | `https://aresgym.com.mx,https://app.aresgym.com,http://localhost:5173` |
 
 #### 3. Build y Deploy
 

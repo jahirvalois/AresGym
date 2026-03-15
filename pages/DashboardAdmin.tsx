@@ -151,7 +151,8 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
-        subscriptionEndDate: newUser.role === UserRole.USER ? (newUser.subEnd ? localToISOStringEndOfDay(newUser.subEnd) : '') : '2050-12-31T23:59:59.000Z'
+        // Treat INDEPENDENT similar to USER for subscription expiration handling
+        subscriptionEndDate: (newUser.role === UserRole.USER || newUser.role === UserRole.INDEPENDENT) ? (newUser.subEnd ? localToISOStringEndOfDay(newUser.subEnd) : '') : '2050-12-31T23:59:59.000Z'
       });
       setNotification({ type: 'success', message: 'Guerrero reclutado e invitacion enviada.' });
       setNewUser({ ...newUser, name: '', email: '' });
@@ -340,6 +341,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     let label = r;
     if (r === 'ADMIN') classes += 'bg-slate-800 text-yellow-600';
     else if (r === 'COACH') classes += 'bg-blue-100 text-blue-700';
+    else if (r === 'INDEPENDENT') classes += 'bg-purple-100 text-purple-700';
     else classes += 'bg-gray-300 text-black-100';
     return <span className={classes}>{label}</span>;
   };
@@ -409,6 +411,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
             <input type="email" placeholder="Email" className="bg-slate-50 p-3 rounded-xl font-bold placeholder-slate-400 placeholder:italic" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} required />
             <select className="bg-slate-50 px-4 py-3 rounded-xl font-bold uppercase" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as UserRole})}>
               <option value={UserRole.USER}>Guerrero</option>
+              <option value={UserRole.INDEPENDENT}>Independiente</option>
               <option value={UserRole.COACH}>Mentor</option>
               <option value={UserRole.ADMIN}>Rey</option>
             </select>
@@ -512,6 +515,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                 <input type="email" disabled className="w-full bg-slate-100 p-3 rounded-xl font-bold cursor-not-allowed placeholder-slate-400 placeholder:italic" value={editingUser.email} />
                 <select className="w-full bg-slate-50 p-3 rounded-xl font-bold uppercase" value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as UserRole})}>
                   <option value={UserRole.USER}>Guerrero</option>
+                  <option value={UserRole.INDEPENDENT}>Independiente</option>
                   <option value={UserRole.COACH}>Mentor</option>
                   <option value={UserRole.ADMIN}>Rey</option>
                 </select>

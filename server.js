@@ -23,7 +23,26 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 // Middleware
-app.use(cors({ origin: true, credentials: true }));
+// Configure CORS using a whitelist to avoid permissive origin:true usage.
+// Set `ALLOWED_ORIGINS` as a comma-separated env var (e.g. "https://app.example.com,http://localhost:5173").
+const allowedOrigins = (process.env.ALLOWED_ORIGINS)
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Deny explicit 'null' origins (sandboxed/opaque), do not allow them
+    if (origin === 'null') return callback(null, false);
+    // Allow requests with no origin (server-to-server tools like curl, Postman)
+    if (!origin) return callback(null, true);
+    // Allow if origin is whitelisted
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Not allowed
+    return callback(null, false);
+  },
+  credentials: true,
+}));
 // Add relaxed COOP/COEP headers to avoid opener-policy blocking postMessage from tooling
 app.use((req, res, next) => {
   try {

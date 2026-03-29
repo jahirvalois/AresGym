@@ -56,6 +56,53 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '30mb' }));
 app.use(express.urlencoded({ extended: true, limit: '30mb' }));
 
+// Attach current user to the request when `x-user-id` header is present.
+// Also provide a helper to check subscription expiry.
+app.use(async (req, res, next) => {
+  try {
+    const headerId = (req.headers['x-user-id'] || '').toString();
+    if (!headerId || !db) return next();
+    // try to resolve by _id or id field
+    let user = null;
+    if (ObjectId.isValid(headerId)) {
+      try { user = await db.collection('users').findOne({ _id: new ObjectId(headerId) }); } catch (e) { user = null; }
+    }
+    if (!user) user = await db.collection('users').findOne({ id: { $eq: headerId } });
+    if (!user) return next();
+    req.currentUser = user;
+
+    // Subscription helpers: compute granular state and boolean active flag
+    req.getSubscriptionState = function (u) {
+      try {
+        const subject = u || req.currentUser;
+        if (!subject) return { state: 'EXPIRED', daysLeft: 0 };
+        const role = (subject.role || '').toString().toUpperCase();
+        if (role === 'ADMIN' || role === 'COACH') return { state: 'OK', daysLeft: Infinity };
+        const dateStr = subject.subscriptionEndDate;
+        if (!dateStr) return { state: 'EXPIRED', daysLeft: 0 };
+        const expiry = new Date(dateStr + 'T23:59:59Z').getTime();
+        const now = Date.now();
+        const diffMs = expiry - now;
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        if (now > expiry) return { state: 'EXPIRED', daysLeft: Math.ceil(diffDays) };
+        if (diffDays <= 3) return { state: 'WARNING', daysLeft: Math.ceil(diffDays) };
+        return { state: 'OK', daysLeft: Math.ceil(diffDays) };
+      } catch (e) { return { state: 'EXPIRED', daysLeft: 0 }; }
+    };
+
+    // Backwards-compatible boolean helper
+    req.isSubscriptionActive = function (u) {
+      try {
+        const st = req.getSubscriptionState(u);
+        return st.state === 'OK';
+      } catch (e) { return false; }
+    };
+  } catch (e) {
+    // ignore and continue
+  }
+  return next();
+});
+
 // Rate limiter for API endpoints to mitigate DoS risk
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
@@ -694,6 +741,16 @@ app.post('/api/routines', async (req, res) => {
     if (!userId || (typeof userId !== 'string' && typeof userId !== 'number')) {
       return res.status(400).json({ error: 'Invalid userId' });
     }
+    // Enforce subscription active for target user when action performed by a USER/INDEPENDENT
+    try {
+      const target = await db.collection('users').findOne(ObjectId.isValid(String(userId)) ? { _id: new ObjectId(String(userId)) } : { id: { $eq: String(userId) } });
+      const requesterRole = (req.headers['x-user-role'] || '').toString().toUpperCase();
+      // If requester is a normal user or independent user and the target user is warning/expired, block
+      if (req.currentUser && (requesterRole === 'USER' || requesterRole === 'INDEPENDENT')) {
+          const st = req.getSubscriptionState ? req.getSubscriptionState(target) : { state: 'OK' };
+          if (!st || st.state !== 'OK') return res.status(403).json({ error: 'SUBSCRIPTION_EXPIRED', state: st?.state || 'EXPIRED' });
+        }
+    } catch (e) { /* ignore DB lookup errors and continue */ }
     const requesterRole = (req.headers['x-user-role'] || '').toString().toUpperCase();
     const collectionName = requesterRole === 'INDEPENDENT' ? 'independent_routines' : 'routines';
     const newRoutine = { ...routine, coachId, status: 'ACTIVE', createdAt: new Date().toISOString() };
@@ -1153,6 +1210,17 @@ app.post('/api/logs', async (req, res) => {
   const sanitizedUserId = userId;
   const sanitizedExerciseId = exerciseId;
   const sanitizedRoutineId = (routineId && routineId !== 'none' && (typeof routineId === 'string' || typeof routineId === 'number')) ? routineId : null;
+
+  // Enforce subscription active for the acting user (if applicable)
+    try {
+      if (req.currentUser) {
+      const requesterRole = (req.currentUser.role || '').toString().toUpperCase();
+      if (requesterRole === 'USER' || requesterRole === 'INDEPENDENT') {
+        const st = req.getSubscriptionState ? req.getSubscriptionState(req.currentUser) : { state: 'OK' };
+        if (!st || st.state !== 'OK') return res.status(403).json({ error: 'SUBSCRIPTION_EXPIRED', state: st?.state || 'EXPIRED' });
+      }
+    }
+  } catch (e) { /* ignore and continue */ }
 
   // Validate that the exercise exists in an active routine for this user (if routineId provided and valid, prefer that)
   const routinesColl = db.collection('routines');

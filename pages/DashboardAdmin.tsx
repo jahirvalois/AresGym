@@ -171,8 +171,8 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     if (editingUser) {
       // Don't allow email to be changed here — remove it from updates
       const { email, _id, id, ...updates } = editingUser as any;
-      // If role was changed to USER and no subscriptionEndDate provided, set a default one month from now
-      if (updates.role === UserRole.USER && !updates.subscriptionEndDate) {
+      // If role was changed to USER or INDEPENDENT and no subscriptionEndDate provided, set a default one month from now
+      if ((updates.role === UserRole.USER || updates.role === UserRole.INDEPENDENT) && !updates.subscriptionEndDate) {
         const d = new Date();
         d.setMonth(d.getMonth() + 1);
         d.setHours(23, 59, 59, 0);
@@ -415,7 +415,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
               <option value={UserRole.COACH}>Mentor</option>
               <option value={UserRole.ADMIN}>Rey</option>
             </select>
-            <input type="datetime-local" className="bg-slate-50 p-3 rounded-xl font-bold" value={newUser.subEnd} onChange={e => setNewUser({...newUser, subEnd: e.target.value})} disabled={newUser.role !== UserRole.USER} />
+            <input type="datetime-local" className="bg-slate-50 p-3 rounded-xl font-bold" value={newUser.subEnd} onChange={e => setNewUser({...newUser, subEnd: e.target.value})} disabled={!(newUser.role === UserRole.USER || newUser.role === UserRole.INDEPENDENT)} />
             <button className="bg-primary text-black border-2 border-primary font-black uppercase italic px-6 py-3 rounded-xl shadow-lg hover:bg-black hover:text-yellow-400 hover:border-yellow-400 transition-all">Reclutar</button>
           </form>
         </section>
@@ -424,7 +424,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
             <table className="w-full table-fixed text-left min-w-[900px] sm:min-w-full">
             <thead className="bg-slate-900 text-white text-[9px] uppercase">
               <tr>
-                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-2/5" onClick={() => handleSort('name')}>
+                <th className="p-1 md:p-2 cursor-pointer hover:text-primary transition-colors select-none w-1/4" onClick={() => handleSort('name')}>
                   <div className="flex items-center space-x-2 text-xs md:text-sm">
                     <span>Nombre / Acceso</span>
                     {sortConfig?.key === 'name' && (<span className="text-[10px]">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
@@ -476,7 +476,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                       <span className={`text-[13px] font-black uppercase px-2 py-1 rounded-lg ${u.status === UserStatus.ACTIVE ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{u.status}</span>
                     )}
                   </td>
-                  <td className="p-1 md:p-2 font-black text-[13px]">{u.role === UserRole.USER ? new Date(u.subscriptionEndDate).toLocaleDateString() : 'INFINITO'}</td>
+                  <td className="p-1 md:p-2 font-black text-[13px]">{(u.role === UserRole.USER || u.role === UserRole.INDEPENDENT) ? new Date(u.subscriptionEndDate).toLocaleDateString() : 'INFINITO'}</td>
                   <td className="p-1 md:p-2 text-right space-x-2 text-[13px]">
                     <button onClick={() => setEditingUser(u)} className="text-blue-600 font-black uppercase hover:underline">Ajustar</button>
                     {u.status !== UserStatus.ACTIVE && (
@@ -523,7 +523,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
                   <option value={UserStatus.ACTIVE}>ACTIVE</option>
                   <option value={UserStatus.INACTIVE}>INACTIVE</option>
                 </select>
-                {editingUser.role === UserRole.USER && (
+                {(editingUser.role === UserRole.USER || editingUser.role === UserRole.INDEPENDENT) && (
                   <input
                     type="datetime-local"
                     className="w-full bg-slate-50 p-3 rounded-xl font-bold"

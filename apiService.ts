@@ -12,7 +12,7 @@ import {
 
 // Simulated DB
 let users: User[] = JSON.parse(localStorage.getItem('gym_users') || '[]');
-let routines: MonthlyRoutine[] = JSON.parse(localStorage.getItem('gym_routines') || '[]');
+let routines: Array<MonthlyRoutine | import('./types').IndependentRoutine> = JSON.parse(localStorage.getItem('gym_routines') || '[]');
 let logs: WorkoutLog[] = JSON.parse(localStorage.getItem('gym_logs') || '[]');
 let auditLogs: AuditLog[] = JSON.parse(localStorage.getItem('gym_audit') || '[]');
 let exerciseMedia: Record<string, string> = JSON.parse(localStorage.getItem('gym_exercise_media') || '{}');
@@ -144,24 +144,41 @@ export const apiService = {
   },
 
   getRoutines: (role: UserRole, userId?: string) => {
-    if (role === UserRole.USER) return routines.filter(r => r.userId === userId && r.status === RoutineStatus.ACTIVE);
+    if (role === UserRole.USER) return routines.filter((r: any) => r.userId === userId && r.status === RoutineStatus.ACTIVE);
     return routines;
   },
 
-  createRoutine: (coachId: string, routine: Partial<MonthlyRoutine>) => {
-    routines = routines.map(r => r.userId === routine.userId ? { ...r, status: RoutineStatus.ARCHIVED } : r);
-    const r: MonthlyRoutine = {
-      id: Math.random().toString(36).substr(2, 9),
-      month: routine.month!,
-      year: routine.year!,
-      userId: routine.userId!,
-      coachId: coachId,
-      status: RoutineStatus.ACTIVE,
-      weeks: routine.weeks || [],
-      createdAt: new Date().toISOString()
-    };
+  createRoutine: (coachId: string, routine: Partial<MonthlyRoutine> | Partial<import('./types').IndependentRoutine>) => {
+    // archive older routines for same user (if monthly)
+    routines = routines.map(r => (r as any).userId === (routine as any).userId ? { ...r, status: RoutineStatus.ARCHIVED } : r);
+    const id = Math.random().toString(36).substr(2, 9);
+    let r: any;
+    if ((routine as any).weeks) {
+      r = {
+        id,
+        month: (routine as any).month || new Date().getMonth() + 1,
+        year: (routine as any).year || new Date().getFullYear(),
+        userId: (routine as any).userId!,
+        coachId: coachId,
+        status: RoutineStatus.ACTIVE,
+        weeks: (routine as any).weeks || [],
+        createdAt: new Date().toISOString()
+      } as MonthlyRoutine;
+      addAudit(coachId, 'CREATE_ROUTINE', `Plan táctico forjado para Guerrero ID: ${(routine as any).userId}`);
+    } else {
+      r = {
+        id,
+        name: (routine as any).name || 'Rutina',
+        userId: (routine as any).userId!,
+        coachId: coachId,
+        status: (routine as any).status || RoutineStatus.ACTIVE,
+        muscles: (routine as any).muscles || [],
+        exercises: (routine as any).exercises || [],
+        createdAt: new Date().toISOString()
+      } as import('./types').IndependentRoutine;
+      addAudit(coachId, 'CREATE_INDEPENDENT_ROUTINE', `Rutina independiente creada para Guerrero ID: ${(routine as any).userId}`);
+    }
     routines.push(r);
-    addAudit(coachId, 'CREATE_ROUTINE', `Plan táctico forjado para Guerrero ID: ${routine.userId}`);
     save();
     return r;
   },

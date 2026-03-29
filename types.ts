@@ -66,6 +66,18 @@ export interface MonthlyRoutine {
   createdAt: string;
 }
 
+// Independent routines: flat structure for user-created routines not tied to month/week
+export interface IndependentRoutine {
+  id: string;
+  name: string;
+  userId: string;
+  coachId?: string | null;
+  status: RoutineStatus | string;
+  muscles: string[];
+  exercises: Exercise[];
+  createdAt: string;
+}
+
 export interface WorkoutLog {
   id: string;
   exerciseId: string;

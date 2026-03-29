@@ -359,7 +359,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
     
     return (
       <div className="space-y-8 animate-in fade-in">
-        <input ref={el => fileInputRef.current = el} type="file" accept="image/*,video/*" className="hidden" onChange={async (e) => {
+        <input ref={el => { fileInputRef.current = el }} type="file" accept="image/*,video/*" className="hidden" onChange={async (e) => {
           const f = e.target.files?.[0];
           if (!f || !uploadTargetExercise) return;
           setUploading(true);
@@ -558,7 +558,7 @@ export const DashboardAdmin: React.FC<{ activeTab: string; currentUser: User }> 
   if (activeTab === 'animations') {
     return (
       <div className="space-y-8 animate-in fade-in">
-        <input ref={el => fileInputRef.current = el} type="file" accept="image/*,video/*" className="hidden" onChange={async (e) => {
+        <input ref={el => { fileInputRef.current = el }} type="file" accept="image/*,video/*" className="hidden" onChange={async (e) => {
           const f = e.target.files?.[0];
           if (!f || !uploadTargetExercise) return;
           setUploading(true);

@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/apiService';
-import { User, MonthlyRoutine, Exercise, SubscriptionState, UserRole } from '../types';
+import { User, MonthlyRoutine, IndependentRoutine, Exercise, SubscriptionState, UserRole } from '../types';
 
 const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) => {
-  const [routine, setRoutine] = useState<MonthlyRoutine | null>(null);
+  const [routine, setRoutine] = useState<MonthlyRoutine | IndependentRoutine | null>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeExercise, setActiveExercise] = useState<Exercise | null>(null);
@@ -73,7 +73,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
       ]);
       let bank = {} as Record<string,string[]>;
       try { bank = await apiService.getExerciseBank(); } catch (e) { bank = {}; }
-      setRoutine(myRoutines[0] || null);
+      setRoutine((myRoutines[0] as MonthlyRoutine | IndependentRoutine) || null);
       setLogs(userLogs);
       setExerciseBank(bank || {});
       setSubState(subscription);
@@ -148,23 +148,35 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
     try {
       if (currentDayRoutine && (currentDayRoutine.exercises || []).some((ex: any) => String(ex.id || ex) === String(activeExercise.id) || (ex.name && ex.name === activeExercise.name))) {
         assigned = true;
-      } else if (routine && routine.weeks) {
-        for (const w of routine.weeks) {
-          const days = w.days || [];
-          for (const d of days) {
-            const exercises = d.exercises || [];
-            for (const ex of exercises) {
-              const id = (ex && (ex.id || ex._id || ex.name)) ? (ex.id || ex._id || ex.name) : ex;
-              const name = (ex && (ex.name || ex.title)) ? (ex.name || ex.title) : null;
-              if (!id) continue;
-              if (String(id) === String(activeExercise.id) || (name && name === activeExercise.name)) {
-                assigned = true;
-                break;
+      } else if (routine) {
+        if ((routine as any).weeks && Array.isArray((routine as any).weeks)) {
+          for (const w of (routine as any).weeks) {
+            const days = w.days || [];
+            for (const d of days) {
+              const exercises = d.exercises || [];
+              for (const ex of exercises) {
+                const id = (ex && ((ex as any).id || (ex as any)._id || (ex as any).name)) ? ((ex as any).id || (ex as any)._id || (ex as any).name) : ex;
+                const name = (ex && ((ex as any).name || (ex as any).title)) ? ((ex as any).name || (ex as any).title) : null;
+                if (!id) continue;
+                if (String(id) === String(activeExercise.id) || (name && name === activeExercise.name)) {
+                  assigned = true;
+                  break;
+                }
               }
+              if (assigned) break;
             }
             if (assigned) break;
           }
-          if (assigned) break;
+        } else if ((routine as any).exercises && Array.isArray((routine as any).exercises)) {
+          for (const ex of (routine as any).exercises) {
+            const id = (ex && ((ex as any).id || (ex as any)._id || (ex as any).name)) ? ((ex as any).id || (ex as any)._id || (ex as any).name) : ex;
+            const name = (ex && ((ex as any).name || (ex as any).title)) ? ((ex as any).name || (ex as any).title) : null;
+            if (!id) continue;
+            if (String(id) === String(activeExercise.id) || (name && name === activeExercise.name)) {
+              assigned = true;
+              break;
+            }
+          }
         }
       }
     } catch (e) {
@@ -443,9 +455,16 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
 
   if (loading) return <div className="p-20 text-center font-black animate-pulse text-slate-400 uppercase tracking-widest italic text-lg">Invocando el Arsenal...</div>;
 
-  const currentDayRoutine = routine?.weeks[0].days.find(d => d.dayName === selectedDay);
-  
-  const sortedExercises = currentDayRoutine ? [...currentDayRoutine.exercises].sort((a, b) => {
+  let currentDayRoutine: any = null;
+  if (routine) {
+    if ((routine as any).weeks && Array.isArray((routine as any).weeks)) {
+      currentDayRoutine = (routine as any).weeks[0].days.find((d: any) => d.dayName === selectedDay);
+    } else if ((routine as any).exercises) {
+      currentDayRoutine = { dayName: selectedDay, exercises: (routine as any).exercises };
+    }
+  }
+
+  const sortedExercises = currentDayRoutine ? [...(currentDayRoutine.exercises || [])].sort((a: any, b: any) => {
     const compA = isExerciseCompletedThisWeek(a.id);
     const compB = isExerciseCompletedThisWeek(b.id);
     if (compA && !compB) return 1;
@@ -459,17 +478,26 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
   const getExerciseName = (exerciseId: string) => {
     // Try to resolve name from current routine
     try {
-      if (routine && routine.weeks) {
-        for (const w of routine.weeks) {
-          const days = w.days || [];
-          for (const d of days) {
-            const exercises = d.exercises || [];
-            for (const ex of exercises) {
-              const id = (ex && (ex.id || ex._id || ex.name)) ? (ex.id || ex._id || ex.name) : ex;
-              const name = (ex && (ex.name || ex.title)) ? (ex.name || ex.title) : null;
-              if (!id) continue;
-              if (String(id) === String(exerciseId)) return name || String(exerciseId);
+      if (routine) {
+        if ((routine as any).weeks && Array.isArray((routine as any).weeks)) {
+          for (const w of (routine as any).weeks) {
+            const days = w.days || [];
+            for (const d of days) {
+              const exercises = d.exercises || [];
+              for (const ex of exercises) {
+                const id = (ex && ((ex as any).id || (ex as any)._id || (ex as any).name)) ? ((ex as any).id || (ex as any)._id || (ex as any).name) : ex;
+                const name = (ex && ((ex as any).name || (ex as any).title)) ? ((ex as any).name || (ex as any).title) : null;
+                if (!id) continue;
+                if (String(id) === String(exerciseId)) return name || String(exerciseId);
+              }
             }
+          }
+        } else if ((routine as any).exercises && Array.isArray((routine as any).exercises)) {
+          for (const ex of (routine as any).exercises) {
+            const id = (ex && ((ex as any).id || (ex as any)._id || (ex as any).name)) ? ((ex as any).id || (ex as any)._id || (ex as any).name) : ex;
+            const name = (ex && ((ex as any).name || (ex as any).title)) ? ((ex as any).name || (ex as any).title) : null;
+            if (!id) continue;
+            if (String(id) === String(exerciseId)) return name || String(exerciseId);
           }
         }
       }
@@ -692,7 +720,7 @@ export const DashboardUser: React.FC<{ currentUser: User }> = ({ currentUser }) 
                 <p className="text-2xl font-black italic text-slate-900">{activeExercise.series}</p>
               </div>
               <div className="bg-slate-50 p-4 rounded-[1rem] w-[150px] text-center border border-slate-100 shadow-inner">
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Misión</p>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Reps</p>
                 <p className="text-2xl font-black italic text-slate-900">{activeExercise.reps}</p>
               </div>
             </div>

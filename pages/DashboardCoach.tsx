@@ -73,11 +73,13 @@ export const DashboardCoach: React.FC<DashboardCoachProps> = ({
       if (activeTab === 'routines' && selectedUser) {
         const currentRoutines = await apiService.getRoutines(UserRole.USER, selectedUser);
         if (currentRoutines.length > 0) {
-          const latest = currentRoutines[0];
+          const latest: any = currentRoutines[0];
           const newSplit: { [key: string]: Exercise[] } = {};
-          latest.weeks[0].days.forEach(day => {
-            newSplit[day.dayName] = day.exercises;
-          });
+          if (latest && latest.weeks && Array.isArray(latest.weeks) && latest.weeks.length > 0) {
+            (latest.weeks[0].days || []).forEach((day: any) => {
+              newSplit[day.dayName] = day.exercises || [];
+            });
+          }
           setWeeklySplit(newSplit);
         } else {
           setWeeklySplit(DAYS_OF_WEEK.reduce((acc, d) => ({ ...acc, [d]: [] }), {}));

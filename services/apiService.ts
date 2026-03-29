@@ -2,6 +2,7 @@
 import { 
   User, 
   MonthlyRoutine, 
+  IndependentRoutine,
   WorkoutLog, 
   UserRole, 
   UserStatus,
@@ -196,7 +197,7 @@ export const apiService = {
     }
   },
 
-  async getRoutines(role: UserRole, userId?: string) {
+  async getRoutines(role: UserRole, userId?: string): Promise<Array<MonthlyRoutine | IndependentRoutine>> {
     try {
       const query = userId ? `?userId=${userId}` : '';
       // attach session headers so server can route to the correct collection
@@ -211,15 +212,15 @@ export const apiService = {
           }
         }
       } catch (e) {}
-      const routines = await request<MonthlyRoutine[]>(`/routines${query}`, { headers });
+      const routines = await request<Array<MonthlyRoutine | IndependentRoutine>>(`/routines${query}`, { headers });
       // normalize _id -> id for routines coming from Mongo/Cosmos
       return routines.map(r => {
-        if ((r as any).id) return r;
+        if ((r as any).id) return r as MonthlyRoutine | IndependentRoutine;
         if ((r as any)._id) {
           const idValue = typeof (r as any)._id === 'object' && (r as any)._id.$oid ? (r as any)._id.$oid : String((r as any)._id);
-          return { ...r, id: idValue } as MonthlyRoutine;
+          return { ...r, id: idValue } as MonthlyRoutine | IndependentRoutine;
         }
-        return r;
+        return r as MonthlyRoutine | IndependentRoutine;
       });
     } catch {
       const all = getLocal('routines', []);
@@ -227,7 +228,7 @@ export const apiService = {
     }
   },
 
-  async createRoutine(coachId: string, routine: Partial<MonthlyRoutine>) {
+  async createRoutine(coachId: string, routine: Partial<MonthlyRoutine | IndependentRoutine>) {
     try {
       // attach session user headers when available to allow permission checks server-side
       let headers: any = {};
@@ -241,7 +242,7 @@ export const apiService = {
           }
         }
       } catch (e) {}
-      return await request<MonthlyRoutine>('/routines', {
+      return await request<MonthlyRoutine | IndependentRoutine>('/routines', {
         method: 'POST',
         headers,
         body: JSON.stringify({ coachId, routine })
@@ -250,12 +251,12 @@ export const apiService = {
       const routines = getLocal('routines', []);
       const r = { id: Math.random().toString(36).substr(2, 9), ...routine, coachId, status: RoutineStatus.ACTIVE, createdAt: new Date().toISOString() };
       saveLocal('routines', [...routines, r]);
-      return r as MonthlyRoutine;
+      return r as MonthlyRoutine | IndependentRoutine;
     }
   },
-  async updateRoutine(currentUser: User, routineId: string, updates: Partial<MonthlyRoutine>) {
+  async updateRoutine(currentUser: User, routineId: string, updates: Partial<MonthlyRoutine | IndependentRoutine>) {
     try {
-      return await request<MonthlyRoutine>(`/routines/${encodeURIComponent(routineId)}`, {
+      return await request<MonthlyRoutine | IndependentRoutine>(`/routines/${encodeURIComponent(routineId)}`, {
         method: 'PATCH',
         headers: {
           'x-user-id': currentUser.id,
@@ -375,7 +376,7 @@ export const apiService = {
     return await request<Record<string, string[]>>('/exercises/bank');
   },
 
-  async getRoutinesStrict(role: UserRole, userId?: string) {
+  async getRoutinesStrict(role: UserRole, userId?: string): Promise<Array<MonthlyRoutine | IndependentRoutine>> {
     const query = userId ? `?userId=${userId}` : '';
     let headers: any = {};
     try {
@@ -388,14 +389,14 @@ export const apiService = {
         }
       }
     } catch (e) {}
-    const routines = await request<MonthlyRoutine[]>(`/routines${query}`, { headers });
+    const routines = await request<Array<MonthlyRoutine | IndependentRoutine>>(`/routines${query}`, { headers });
     return routines.map(r => {
-      if ((r as any).id) return r;
+      if ((r as any).id) return r as MonthlyRoutine | IndependentRoutine;
       if ((r as any)._id) {
         const idValue = typeof (r as any)._id === 'object' && (r as any)._id.$oid ? (r as any)._id.$oid : String((r as any)._id);
-        return { ...r, id: idValue } as MonthlyRoutine;
+        return { ...r, id: idValue } as MonthlyRoutine | IndependentRoutine;
       }
-      return r;
+      return r as MonthlyRoutine | IndependentRoutine;
     });
   },
 

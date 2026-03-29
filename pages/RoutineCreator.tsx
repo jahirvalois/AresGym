@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { MonthlyRoutine, User } from '../types';
+import { IndependentRoutine, User } from '../types';
 import { apiService } from '../services/apiService';
 import ExerciseHistoryTable from '../components/ExerciseHistoryTable';
 
 export const RoutineCreator: React.FC<{ currentUser: User }> = ({ currentUser }) => {
-  const [routines, setRoutines] = useState<MonthlyRoutine[]>([]);
+  const [routines, setRoutines] = useState<IndependentRoutine[]>([]);
   const [name, setName] = useState('Nueva Rutina');
 
   const [categories, setCategories] = useState<string[]>([]);
@@ -93,7 +93,7 @@ export const RoutineCreator: React.FC<{ currentUser: User }> = ({ currentUser })
     try {
       if (editingId) {
         // save edits
-        await apiService.updateRoutine(currentUser, editingId, { name: routine.name, muscles: routine.muscles, exercises: routine.exercises });
+        await apiService.updateRoutine(currentUser, editingId, { name: (routine as any).name, muscles: (routine as any).muscles, exercises: (routine as any).exercises } as any);
       } else {
         await apiService.createRoutine(currentUser.id, routine);
       }
@@ -212,7 +212,7 @@ export const RoutineCreator: React.FC<{ currentUser: User }> = ({ currentUser })
               return visible.map(r => (
                 <li key={String(r.id || (r as any)._id)} className="border p-3 rounded flex justify-between items-center">
                   <div>
-                    <div className="font-bold">{r.name}</div>
+                    <div className="font-bold">{(r as any).name}</div>
                     <div className="text-xs text-slate-500">{(r as any).muscles?.join?.(', ') || ''}</div>
                   </div>
                   <div className="flex gap-2">

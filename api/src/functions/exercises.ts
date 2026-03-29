@@ -54,16 +54,17 @@ export async function exercisesHandler(request: HttpRequest, context: Invocation
                         for (const [ex, url] of Object.entries(content)) {
                             try {
                                 if (!url) { signed[ex] = ''; continue; }
+                                const urlStr = String(url);
                                 // If URL already has query params assume it's signed
-                                if (url.indexOf('?') >= 0) { signed[ex] = url; continue; }
+                                if (urlStr.indexOf('?') >= 0) { signed[ex] = urlStr; continue; }
 
-                                const parsed = new URL(url);
+                                const parsed = new URL(urlStr);
                                 // path looks like /<container>/<blobName>
                                 const pathParts = parsed.pathname.split('/').filter(Boolean);
                                 // ensure container matches expected container
                                 const container = pathParts[0];
                                 const blobName = pathParts.slice(1).join('/');
-                                if (!blobName) { signed[ex] = url; continue; }
+                                if (!blobName) { signed[ex] = urlStr; continue; }
 
                                 const sas = generateBlobSASQueryParameters({
                                     containerName: container,
@@ -73,7 +74,7 @@ export async function exercisesHandler(request: HttpRequest, context: Invocation
                                     expiresOn
                                 }, creds).toString();
 
-                                signed[ex] = `${url}?${sas}`;
+                                signed[ex] = `${urlStr}?${sas}`;
                             } catch (e) {
                                 signed[ex] = (content as any)[ex];
                             }

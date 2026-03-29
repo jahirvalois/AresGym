@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node server.js"
+    "start": "node server.js",
+    "tsc-check": "tsc --noEmit",
+    "e2e-test": "node scripts/e2e_test.mjs"
   },
   "dependencies": {
     "@azure/cosmos": "^3.16.0",
@@ -36,6 +38,9 @@
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.0.0",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "@azure/functions": "^4.0.0",
+    "@types/bcryptjs": "^2.4.2",
+    "node-fetch": "^3.3.2"
   }
 }

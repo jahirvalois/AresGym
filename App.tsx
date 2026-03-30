@@ -111,6 +111,7 @@ const App: React.FC = () => {
         if (stored?.expiresAt && stored.expiresAt > Date.now() && stored.user) {
           setUser(stored.user);
           if (stored.user.role === UserRole.COACH || stored.user.role === UserRole.ADMIN) setActiveTab('users');
+          else if (stored.user.role === UserRole.INDEPENDENT) setActiveTab('create-routine');
           else setActiveTab('dashboard');
         } else {
           localStorage.removeItem(SESSION_KEY);
@@ -170,11 +171,17 @@ const App: React.FC = () => {
                   }
                   localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
                   setUser(normalized);
+                  if (normalized.role === UserRole.COACH || normalized.role === UserRole.ADMIN) setActiveTab('users');
+                  else if (normalized.role === UserRole.INDEPENDENT) setActiveTab('create-routine');
+                  else setActiveTab('dashboard');
                 }).catch(() => {
                   // Si falla la verificación remota, permitir login y limpiar errores
                   setError(null);
                   localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
-                  setUser(normalized);
+                    setUser(normalized);
+                    if (normalized.role === UserRole.COACH || normalized.role === UserRole.ADMIN) setActiveTab('users');
+                    else if (normalized.role === UserRole.INDEPENDENT) setActiveTab('create-routine');
+                    else setActiveTab('dashboard');
                 });
               }
             }).catch(() => {});
@@ -249,10 +256,16 @@ const App: React.FC = () => {
                 }
                 localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
                 setUser(normalized);
+                if (normalized.role === UserRole.COACH || normalized.role === UserRole.ADMIN) setActiveTab('users');
+                else if (normalized.role === UserRole.INDEPENDENT) setActiveTab('create-routine');
+                else setActiveTab('dashboard');
               }).catch(() => {
                 setError(null);
                 localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
                 setUser(normalized);
+                if (normalized.role === UserRole.COACH || normalized.role === UserRole.ADMIN) setActiveTab('users');
+                else if (normalized.role === UserRole.INDEPENDENT) setActiveTab('create-routine');
+                else setActiveTab('dashboard');
               });
             }
           }).catch(() => {});
@@ -471,10 +484,16 @@ const App: React.FC = () => {
                                 }
                                 localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
                                 setUser(normalized);
+                                if (normalized.role === UserRole.COACH || normalized.role === UserRole.ADMIN) setActiveTab('users');
+                                else if (normalized.role === UserRole.INDEPENDENT) setActiveTab('create-routine');
+                                else setActiveTab('dashboard');
                               }).catch(() => {
                                 setError(null);
                                 localStorage.setItem(SESSION_KEY, JSON.stringify({ user: normalized, expiresAt: Date.now() + 3600 * 1000 }));
                                 setUser(normalized);
+                                if (normalized.role === UserRole.COACH || normalized.role === UserRole.ADMIN) setActiveTab('users');
+                                else if (normalized.role === UserRole.INDEPENDENT) setActiveTab('create-routine');
+                                else setActiveTab('dashboard');
                               });
                   }
                 }).catch(() => {});
@@ -544,6 +563,7 @@ const App: React.FC = () => {
         setUser(found);
         localStorage.setItem(SESSION_KEY, JSON.stringify({ user: found, expiresAt: Date.now() + SESSION_TTL_MS }));
         if (found.role === UserRole.COACH || found.role === UserRole.ADMIN) setActiveTab('users');
+        else if (found.role === UserRole.INDEPENDENT) setActiveTab('create-routine');
         else setActiveTab('dashboard');
         if (sub.message) showTempError(sub.message, false); else setError(null);
       } else {
@@ -615,6 +635,7 @@ const App: React.FC = () => {
         setTempUser(null);
         setError(null);
         if (updated.role === UserRole.COACH || updated.role === UserRole.ADMIN) setActiveTab('users');
+        else if (updated.role === UserRole.INDEPENDENT) setActiveTab('create-routine');
       }
     }
   };
